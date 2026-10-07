@@ -49,6 +49,42 @@ function MainContent() {
     }
   });
 
+  // Automatically reset user's local voted option when Admin resets the poll or options change
+  useEffect(() => {
+    const options = campusVibeConfig?.options || [];
+    if (options.length === 0) return;
+
+    // 1. If all options have 0 votes (admin reset), clear user's selection on this device
+    const totalVotes = options.reduce((acc, opt) => acc + (opt.count || 0), 0);
+    if (totalVotes === 0 && selectedVibe !== null) {
+      setSelectedVibe(null);
+      try {
+        localStorage.removeItem('nexusit_today_vibe');
+      } catch {}
+      return;
+    }
+
+    // 2. If the user's previously voted option no longer exists, clear selection
+    if (selectedVibe && !options.some((o) => o.id === selectedVibe)) {
+      setSelectedVibe(null);
+      try {
+        localStorage.removeItem('nexusit_today_vibe');
+      } catch {}
+    }
+  }, [campusVibeConfig, selectedVibe]);
+
+  // Listen for real-time vibe reset custom event dispatched by SSE / background sync
+  useEffect(() => {
+    const handleVibeReset = () => {
+      setSelectedVibe(null);
+      try {
+        localStorage.removeItem('nexusit_today_vibe');
+      } catch {}
+    };
+    window.addEventListener('campus-vibe-reset', handleVibeReset);
+    return () => window.removeEventListener('campus-vibe-reset', handleVibeReset);
+  }, []);
+
   const [vibeVoteEffect, setVibeVoteEffect] = useState<{ id: string; emoji: string } | null>(null);
 
   const handleVoteVibe = (vibeId: string) => {

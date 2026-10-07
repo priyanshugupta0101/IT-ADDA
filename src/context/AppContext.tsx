@@ -828,6 +828,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setCampusStreak(0);
           }
           localStorage.setItem('nexusit_campus_streak', '0');
+          localStorage.removeItem('nexusit_today_vibe');
+          window.dispatchEvent(new CustomEvent('campus-vibe-reset'));
           if (payload.mode === 'wipe') {
             localStorage.setItem('nexusit_db_wiped', 'true');
             setCurrentUser(null);
@@ -839,14 +841,79 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       });
 
+      eventSource.addEventListener('STUDENTS_UPDATED', (e: MessageEvent) => {
+        try {
+          const payload = JSON.parse(e.data);
+          const studentList = payload.students || payload.database?.students;
+          if (Array.isArray(studentList)) {
+            setStudents(studentList);
+            try {
+              localStorage.setItem('nexusit_portal_students_live', JSON.stringify(studentList));
+            } catch {}
+            if (currentUserRef.current) {
+              const updatedSelf = studentList.find((s: StudentProfile) => s.id === currentUserRef.current?.id);
+              if (updatedSelf) {
+                setCurrentUser(updatedSelf);
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Error handling STUDENTS_UPDATED SSE event:', err);
+        }
+      });
+
+      eventSource.addEventListener('LIKES_RESET', (e: MessageEvent) => {
+        try {
+          const payload = JSON.parse(e.data);
+          const studentList = payload.students || payload.database?.students;
+          if (Array.isArray(studentList)) {
+            setStudents(studentList);
+            try {
+              localStorage.setItem('nexusit_portal_students_live', JSON.stringify(studentList));
+            } catch {}
+            if (currentUserRef.current) {
+              const updatedSelf = studentList.find((s: StudentProfile) => s.id === currentUserRef.current?.id);
+              if (updatedSelf) {
+                setCurrentUser(updatedSelf);
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Error handling LIKES_RESET SSE event:', err);
+        }
+      });
+
       eventSource.addEventListener('VIBE_CONFIG_UPDATED', (e) => {
         try {
           const payload = JSON.parse(e.data);
           if (payload.vibeConfig) {
             setCampusVibeConfig(payload.vibeConfig);
+            const allZero = (payload.vibeConfig.options || []).length > 0 &&
+              (payload.vibeConfig.options || []).every((o: any) => (o.count || 0) === 0);
+            if (allZero) {
+              try {
+                localStorage.removeItem('nexusit_today_vibe');
+              } catch {}
+              window.dispatchEvent(new CustomEvent('campus-vibe-reset'));
+            }
           }
         } catch (err) {
           console.error('Error handling VIBE_CONFIG_UPDATED SSE event:', err);
+        }
+      });
+
+      eventSource.addEventListener('VIBE_RESET', (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload.vibeConfig) {
+            setCampusVibeConfig(payload.vibeConfig);
+          }
+          try {
+            localStorage.removeItem('nexusit_today_vibe');
+          } catch {}
+          window.dispatchEvent(new CustomEvent('campus-vibe-reset'));
+        } catch (err) {
+          console.error('Error handling VIBE_RESET SSE event:', err);
         }
       });
 
@@ -868,23 +935,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.warn('SSE not initialized:', e);
     }
 
-    // 3. Periodic Background Sync Polling (every 4 seconds for resilience across mobile networks)
+    // 3. Periodic Background Sync Polling (every 2.5 seconds for instant multi-device resilience)
     const pollInterval = setInterval(() => {
       fetch('/api/database')
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
           if (!data) return;
-          if (Array.isArray(data.students)) setStudents(data.students);
+          if (Array.isArray(data.students)) {
+            setStudents(data.students);
+            if (currentUserRef.current) {
+              const updatedSelf = data.students.find((s: StudentProfile) => s.id === currentUserRef.current?.id);
+              if (updatedSelf) setCurrentUser(updatedSelf);
+            }
+          }
           if (Array.isArray(data.noteRequests)) setNoteRequests(data.noteRequests);
           if (Array.isArray(data.resources)) setResources(data.resources);
           if (Array.isArray(data.notices)) setNotices(data.notices);
           if (Array.isArray(data.chatMessages)) setChatMessages(data.chatMessages);
           if (data.campusVibeConfig && Array.isArray(data.campusVibeConfig.options)) {
             setCampusVibeConfig(data.campusVibeConfig);
+            const allZero = data.campusVibeConfig.options.length > 0 &&
+              data.campusVibeConfig.options.every((o: any) => (o.count || 0) === 0);
+            if (allZero) {
+              try {
+                localStorage.removeItem('nexusit_today_vibe');
+              } catch {}
+              window.dispatchEvent(new CustomEvent('campus-vibe-reset'));
+            }
           }
         })
         .catch(() => {});
-    }, 4000);
+    }, 2500);
 
     return () => {
       if (eventSource) eventSource.close();
@@ -1706,21 +1787,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           dislikedBy: [],
         }));
         setStudents(cleaned);
+        if (currentUser) {
+          setCurrentUser({
+            ...currentUser,
+            likes: 0,
+            dislikes: 0,
+            likedBy: [],
+            dislikedBy: [],
+          });
+        }
         try {
           localStorage.setItem('nexusit_portal_students_live', JSON.stringify(cleaned));
           localStorage.removeItem('nexusit_students_permanent_backup');
         } catch {}
 
-        fetch('/api/admin/reset', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode: 'likes' }),
-        }).then(async (res) => {
+        try {
+          const res = await fetch('/api/admin/reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: 'likes' }),
+          });
           const data = await res.json();
           if (data.database?.students) {
             setStudents(data.database.students);
           }
-        }).catch(() => {});
+        } catch (err) {
+          console.error('Error resetting likes:', err);
+        }
 
         soundEngine.playSuccess();
         return { success: true, message: 'All student likes & votes reset to 0.' };
@@ -1730,6 +1823,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
           localStorage.removeItem('nexusit_today_vibe');
         } catch {}
+        window.dispatchEvent(new CustomEvent('campus-vibe-reset'));
         setCampusVibeConfig((prev) => {
           const base = prev || DEFAULT_CAMPUS_VIBE;
           return {
@@ -1738,16 +1832,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
         });
 
-        fetch('/api/admin/reset', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode: 'vibe' }),
-        }).then(async (res) => {
+        try {
+          const res = await fetch('/api/admin/reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: 'vibe' }),
+          });
           const data = await res.json();
           if (data.vibeConfig) {
             setCampusVibeConfig(data.vibeConfig);
           }
-        }).catch(() => {});
+        } catch (err) {
+          console.error('Error resetting vibe poll:', err);
+        }
 
         soundEngine.playSuccess();
         return { success: true, message: 'Campus vibe votes reset to 0.' };

@@ -466,6 +466,7 @@ app.post('/api/admin/reset', (req, res) => {
     }));
     saveDatabase();
     broadcast('STUDENTS_UPDATED', { database: dbState, students: dbState.students });
+    broadcast('LIKES_RESET', { database: dbState, students: dbState.students });
     return res.json({ success: true, message: 'All student likes & votes reset to 0.', database: dbState });
   }
 
@@ -480,6 +481,7 @@ app.post('/api/admin/reset', (req, res) => {
     }
     saveDatabase();
     broadcast('VIBE_CONFIG_UPDATED', { vibeConfig: dbState.campusVibeConfig, database: dbState });
+    broadcast('VIBE_RESET', { vibeConfig: dbState.campusVibeConfig, database: dbState });
     return res.json({ success: true, message: 'Campus vibe poll votes reset to 0.', vibeConfig: dbState.campusVibeConfig });
   }
 
@@ -496,6 +498,7 @@ app.post('/api/admin/reset', (req, res) => {
     };
     saveDatabase();
     broadcast('DATABASE_RESET', { mode: 'wipe', database: dbState });
+    broadcast('VIBE_RESET', { vibeConfig: dbState.campusVibeConfig, database: dbState });
     return res.json({ success: true, message: 'All database records wiped clean successfully', database: dbState });
   }
 });
