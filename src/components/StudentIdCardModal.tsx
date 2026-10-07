@@ -206,6 +206,11 @@ export const StudentIdCardModal: React.FC = () => {
               <span className="px-1.5 py-0.5 bg-[#241344] text-[#ff9844] border border-[#ff9844]/60 font-mono font-bold text-[10px]">
                 ID: {viewingStudent.id}
               </span>
+              {(viewingStudent.role === 'DEVELOPER_ADMIN' || viewingStudent.isDeveloper) && (
+                <span className="px-1.5 py-0.5 bg-[#f9c74f] text-[#1a1030] font-mono font-extrabold text-[10px] border border-[#f4e6c8]">
+                  ⚡ DEVELOPER / ADMIN
+                </span>
+              )}
               <span className="text-[#e2a87a] font-mono text-[11px]">Roll #{String(viewingStudent.rollNumber).padStart(2, '0')}</span>
               <span className="text-[#a05282]">·</span>
               <span className="text-[#c8a8d8] text-[11px]">{viewingStudent.division}</span>
@@ -351,6 +356,11 @@ export const StudentIdCardModal: React.FC = () => {
               <span className="px-2 py-0.5 bg-[#241344] text-[#ff9844] border border-[#ff9844]/60 font-mono font-bold text-xs tracking-wider">
                 ID: {viewingStudent.id}
               </span>
+              {(viewingStudent.role === 'DEVELOPER_ADMIN' || viewingStudent.isDeveloper) && (
+                <span className="px-1.5 py-0.5 bg-[#f9c74f] text-[#1a1030] font-mono font-extrabold text-[10px] border border-[#f4e6c8]">
+                  ⚡ DEVELOPER / ADMIN
+                </span>
+              )}
               <span className="text-[#e2a87a] font-mono text-[11px]">#{viewingStudent.rollNumber}</span>
               <span className="text-[#a05282]">·</span>
               <span className="text-[#c8a8d8] text-[11px]">{viewingStudent.division}</span>

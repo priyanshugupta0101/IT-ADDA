@@ -150,6 +150,11 @@ export const TopLeaderboard: React.FC<TopLeaderboardProps> = ({ onSelectStudent 
                     {/* 3. NAME */}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
+                        {(student.role === 'DEVELOPER_ADMIN' || student.isDeveloper) && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-[#f9c74f] text-[#1a1030] text-[9px] font-mono font-extrabold uppercase border border-[#f4e6c8]">
+                            ⚡ DEVELOPER / ADMIN
+                          </span>
+                        )}
                         <span className="text-sm sm:text-base font-bold text-white group-hover:text-[#f9c74f] transition-colors truncate font-mono">
                           {student.name}
                         </span>

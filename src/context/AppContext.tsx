@@ -68,6 +68,7 @@ interface AppContextType {
   
   // Registration & Approval & Management
   registerStudent: (data: Omit<StudentProfile, 'id' | 'status' | 'likes' | 'dislikes' | 'likedBy' | 'dislikedBy' | 'createdAt' | 'batch'>) => { success: boolean; message: string };
+  registerDeveloperProfile: (data: Omit<StudentProfile, 'id' | 'status' | 'likes' | 'dislikes' | 'likedBy' | 'dislikedBy' | 'createdAt' | 'batch' | 'role' | 'isAdmin' | 'isDeveloper'>) => Promise<{ success: boolean; message: string; student?: StudentProfile }>;
   approveStudent: (studentId: string, assignedRole: StudentRole) => void;
   dismissStudent: (studentId: string) => void;
   deleteStudent: (studentId: string) => void;
@@ -372,10 +373,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     title: "Today's Campus Vibe",
     subtitle: "Tap what describes your study mood today",
     options: [
-      { id: 'grind', label: 'Midsem / Exam Grind', icon: '📚', count: 28 },
-      { id: 'hack', label: 'Coding & Projects', icon: '💻', count: 19 },
-      { id: 'canteen', label: 'Canteen & Chill', icon: '☕', count: 14 },
-      { id: 'lab', label: 'Lab Submissions', icon: '⚡', count: 23 },
+      { id: 'grind', label: 'Midsem / Exam Grind', icon: '📚', count: 0 },
+      { id: 'hack', label: 'Coding & Projects', icon: '💻', count: 0 },
+      { id: 'canteen', label: 'Canteen & Chill', icon: '☕', count: 0 },
+      { id: 'lab', label: 'Lab Submissions', icon: '⚡', count: 0 },
     ],
   };
 
@@ -1033,6 +1034,80 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
+  const registerDeveloperProfile = async (
+    data: Omit<
+      StudentProfile,
+      'id' | 'status' | 'likes' | 'dislikes' | 'likedBy' | 'dislikedBy' | 'createdAt' | 'batch' | 'role' | 'isAdmin' | 'isDeveloper'
+    >
+  ) => {
+    const existing = students.find(
+      (s) => s.rollNumber === data.rollNumber || s.email.toLowerCase() === data.email.toLowerCase()
+    );
+    if (existing && existing.status === 'APPROVED' && existing.role !== 'DEVELOPER_ADMIN') {
+      return {
+        success: false,
+        message: `An approved student already exists with Roll Number ${data.rollNumber} or email ${data.email}.`,
+      };
+    }
+
+    const batch = getBatchFromRoll(data.rollNumber);
+    const devId = existing ? existing.id : `std_dev_${Date.now()}`;
+    const newDevProfile: StudentProfile = {
+      ...data,
+      id: devId,
+      name: data.name.trim(),
+      rollNumber: data.rollNumber,
+      division: data.division,
+      branch: data.branch,
+      year: data.year,
+      gender: data.gender,
+      phoneNumber: data.phoneNumber,
+      email: data.email,
+      description: data.description || '',
+      profileTag: data.profileTag || 'Lead Engineer & Admin',
+      techInterest: data.techInterest || 'React, Node.js, Python, Cloud',
+      instagramHandle: data.instagramHandle || '',
+      linkedinUrl: data.linkedinUrl || '',
+      photoUrl: data.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=95',
+      idCardTheme: data.idCardTheme || 'spidey',
+      password: data.password || '1Q2W',
+      batch,
+      role: 'DEVELOPER_ADMIN',
+      isAdmin: true,
+      isDeveloper: true,
+      status: 'APPROVED',
+      likes: existing?.likes || 0,
+      dislikes: 0,
+      likedBy: existing?.likedBy || [],
+      dislikedBy: [],
+      createdAt: existing?.createdAt || new Date().toISOString(),
+    };
+
+    setStudents((prev) => [newDevProfile, ...prev.filter((s) => s.id !== devId)]);
+    setCurrentUser(newDevProfile);
+    try {
+      localStorage.setItem('nexusit_portal_user_id_live', devId);
+      localStorage.setItem('nexusit_portal_students_live', JSON.stringify([newDevProfile, ...students.filter((s) => s.id !== devId)]));
+    } catch {}
+
+    try {
+      await fetch('/api/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newDevProfile),
+      });
+    } catch (err) {
+      console.error('Error saving developer profile:', err);
+    }
+
+    soundEngine.playSuccess();
+    return {
+      success: true,
+      message: 'Developer / Admin profile created and published successfully!',
+      student: newDevProfile,
+    };
+  };
+
   const approveStudent = (studentId: string, assignedRole: StudentRole) => {
     const isAdmin = assignedRole === 'DEVELOPER_ADMIN';
     setStudents((prev) =>
@@ -1208,57 +1283,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsAdminUnlocked(true);
       sessionStorage.setItem('nexusit_admin_unlocked', 'true');
 
-      // Ensure active student profile is linked to currentUser for admin self-management
-      let targetProfile = students.find(
+      // If a Developer / Admin profile already exists in the system, link it to currentUser
+      const existingDevAdmin = students.find(
         (s) =>
-          s.name.toLowerCase() === cleanId.toLowerCase() ||
-          s.id === 'std_24' ||
-          s.id === 'std_priyanshu' ||
-          s.name.toLowerCase().includes('priyanshu') ||
           s.role === 'DEVELOPER_ADMIN' ||
-          s.isAdmin === true
+          (s.isAdmin === true && s.status === 'APPROVED')
       );
 
-      if (!targetProfile) {
-        if (students.length > 0) {
-          targetProfile = students[0];
-        } else {
-          targetProfile = {
-            id: 'std_priyanshu_admin',
-            name: cleanId.toLowerCase() === 'admin' ? 'Priyanshu Gupta' : cleanId,
-            rollNumber: 24,
-            division: 'Div A (IT-1)',
-            branch: 'Information Technology',
-            year: '1st Year (FE)',
-            gender: 'Boys',
-            phoneNumber: '09004565878',
-            email: 'codingtech928@gmail.com',
-            password: '1Q2W',
-            profileTag: 'Lead Engineer & Admin',
-            description: 'First Year Information Technology lead developer and administrator.',
-            linkedinUrl: '',
-            instagramHandle: '',
-            techInterest: 'Full-Stack, React, Node.js, Python',
-            photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=95',
-            role: 'DEVELOPER_ADMIN',
-            batch: 'BATCH_2',
-            status: 'APPROVED',
-            likes: 24,
-            dislikes: 0,
-            likedBy: [],
-            dislikedBy: [],
-            createdAt: new Date().toISOString(),
-            isAdmin: true,
-            idCardTheme: 'spidey',
-          };
-          setStudents((prev) => [targetProfile!, ...prev]);
-        }
+      if (existingDevAdmin) {
+        setCurrentUser(existingDevAdmin);
+        localStorage.setItem('nexusit_portal_user_id_live', existingDevAdmin.id);
       }
-
-      if (targetProfile) {
-        setCurrentUser(targetProfile);
-        localStorage.setItem('nexusit_portal_user_id_live', targetProfile.id);
-      }
+      // Note: We deliberately DO NOT auto-create a profile!
+      // The admin can click "Load / Register Your Profile" in the Admin Panel to create their profile.
 
       soundEngine.playSuccess();
       return { success: true, message: 'Admin verified successfully.' };
@@ -1949,6 +1986,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         unreadBadges,
         clearTabBadge,
         registerStudent,
+        registerDeveloperProfile,
         approveStudent,
         dismissStudent,
         deleteStudent,

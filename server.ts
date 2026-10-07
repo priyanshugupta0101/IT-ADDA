@@ -34,10 +34,10 @@ const DEFAULT_VIBE_CONFIG: CampusVibeConfig = {
   title: "Today's Campus Vibe",
   subtitle: "Tap what describes your study mood today",
   options: [
-    { id: 'grind', label: 'Midsem / Exam Grind', icon: '📚', count: 28 },
-    { id: 'hack', label: 'Coding & Projects', icon: '💻', count: 19 },
-    { id: 'canteen', label: 'Canteen & Chill', icon: '☕', count: 14 },
-    { id: 'lab', label: 'Lab Submissions', icon: '⚡', count: 23 },
+    { id: 'grind', label: 'Midsem / Exam Grind', icon: '📚', count: 0 },
+    { id: 'hack', label: 'Coding & Projects', icon: '💻', count: 0 },
+    { id: 'canteen', label: 'Canteen & Chill', icon: '☕', count: 0 },
+    { id: 'lab', label: 'Lab Submissions', icon: '⚡', count: 0 },
   ],
 };
 
@@ -60,7 +60,7 @@ let dbState: DatabaseState = {
   chatMessages: [],
   campusStreak: 0,
   campusVibeConfig: DEFAULT_VIBE_CONFIG,
-  adminCredentials: { username: 'admin', password: 'admin' },
+  adminCredentials: { username: 'admin', password: 'password123' },
 };
 
 // Load database from file

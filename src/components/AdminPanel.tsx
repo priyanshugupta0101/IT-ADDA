@@ -40,6 +40,7 @@ import {
   Radio,
   X,
   CreditCard,
+  UserPlus,
   CheckCheck,
   Upload,
   Pin,
@@ -107,6 +108,7 @@ export const AdminPanel: React.FC = () => {
     uploadAdminNote,
     fulfillNoteRequest,
     deleteNoteRequest,
+    registerDeveloperProfile,
     isAdminUnlocked,
     unlockAdmin,
     lockAdmin,
@@ -128,6 +130,12 @@ export const AdminPanel: React.FC = () => {
   } = useApp();
 
   const isDark = theme === 'dark';
+
+  // Check if a Developer / Admin profile is currently registered in the database
+  const developerProfile = students.find(
+    (s) => s.role === 'DEVELOPER_ADMIN' || (s.isAdmin && s.status === 'APPROVED')
+  );
+  const hasDevProfile = Boolean(developerProfile);
 
   // Admin Auth Gate State
   const [adminUserId, setAdminUserId] = useState('');
@@ -167,48 +175,49 @@ export const AdminPanel: React.FC = () => {
   }, [developerFooterConfig]);
 
   // Admin Profile Editor State
-  const [profName, setProfName] = useState(currentUser?.name || 'Priyanshu Gupta');
-  const [profRoll, setProfRoll] = useState<number | string>(currentUser?.rollNumber ?? 24);
-  const [profDivision, setProfDivision] = useState(currentUser?.division || 'Div A (IT-1)');
-  const [profBranch, setProfBranch] = useState(currentUser?.branch || 'Information Technology');
-  const [profYear, setProfYear] = useState(currentUser?.year || '1st Year (FE)');
-  const [profGender, setProfGender] = useState<GenderType>(currentUser?.gender || 'Boys');
-  const [profBatch, setProfBatch] = useState<BatchType>(currentUser?.batch || 'BATCH_2');
-  const [profPhone, setProfPhone] = useState(currentUser?.phoneNumber || '');
-  const [profEmail, setProfEmail] = useState(currentUser?.email || '');
-  const [profBio, setProfBio] = useState(currentUser?.description || '');
-  const [profTag, setProfTag] = useState(currentUser?.profileTag || 'Lead Engineer & Admin');
-  const [profTech, setProfTech] = useState(currentUser?.techInterest || 'React, Node.js, Python, Cloud');
-  const [profInsta, setProfInsta] = useState(currentUser?.instagramHandle || '');
-  const [profLinkedIn, setProfLinkedIn] = useState(currentUser?.linkedinUrl || '');
-  const [profPhoto, setProfPhoto] = useState(currentUser?.photoUrl || '');
-  const [profTheme, setProfTheme] = useState<IdCardTheme>(currentUser?.idCardTheme || 'spidey');
-  const [profPassword, setProfPassword] = useState(currentUser?.password || '');
+  const [profName, setProfName] = useState(developerProfile?.name || currentUser?.name || 'Priyanshu Gupta');
+  const [profRoll, setProfRoll] = useState<number | string>(developerProfile?.rollNumber ?? currentUser?.rollNumber ?? 24);
+  const [profDivision, setProfDivision] = useState(developerProfile?.division || currentUser?.division || 'Div A (IT-1)');
+  const [profBranch, setProfBranch] = useState(developerProfile?.branch || currentUser?.branch || 'Information Technology');
+  const [profYear, setProfYear] = useState(developerProfile?.year || currentUser?.year || '1st Year (FE)');
+  const [profGender, setProfGender] = useState<GenderType>(developerProfile?.gender || currentUser?.gender || 'Boys');
+  const [profBatch, setProfBatch] = useState<BatchType>(developerProfile?.batch || currentUser?.batch || 'BATCH_2');
+  const [profPhone, setProfPhone] = useState(developerProfile?.phoneNumber || currentUser?.phoneNumber || '');
+  const [profEmail, setProfEmail] = useState(developerProfile?.email || currentUser?.email || 'codingtech928@gmail.com');
+  const [profBio, setProfBio] = useState(developerProfile?.description || currentUser?.description || 'First Year Information Technology lead developer and administrator.');
+  const [profTag, setProfTag] = useState(developerProfile?.profileTag || currentUser?.profileTag || 'Lead Engineer & Admin');
+  const [profTech, setProfTech] = useState(developerProfile?.techInterest || currentUser?.techInterest || 'React, Node.js, Python, Cloud');
+  const [profInsta, setProfInsta] = useState(developerProfile?.instagramHandle || currentUser?.instagramHandle || '');
+  const [profLinkedIn, setProfLinkedIn] = useState(developerProfile?.linkedinUrl || currentUser?.linkedinUrl || '');
+  const [profPhoto, setProfPhoto] = useState(developerProfile?.photoUrl || currentUser?.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=95');
+  const [profTheme, setProfTheme] = useState<IdCardTheme>(developerProfile?.idCardTheme || currentUser?.idCardTheme || 'spidey');
+  const [profPassword, setProfPassword] = useState(developerProfile?.password || currentUser?.password || '1Q2W');
   const [showProfPassword, setShowProfPassword] = useState(false);
   const [isSavingProf, setIsSavingProf] = useState(false);
 
-  // Synchronize with currentUser whenever currentUser changes
+  // Synchronize with developerProfile or currentUser whenever changed
   useEffect(() => {
-    if (currentUser) {
-      setProfName(currentUser.name || '');
-      setProfRoll(currentUser.rollNumber ?? '');
-      setProfDivision(currentUser.division || 'Div A (IT-1)');
-      setProfBranch(currentUser.branch || 'Information Technology');
-      setProfYear(currentUser.year || '1st Year (FE)');
-      setProfGender(currentUser.gender || 'Boys');
-      setProfBatch(currentUser.batch || getBatchFromRoll(currentUser.rollNumber));
-      setProfPhone(currentUser.phoneNumber || '');
-      setProfEmail(currentUser.email || '');
-      setProfBio(currentUser.description || '');
-      setProfTag(currentUser.profileTag || '');
-      setProfTech(currentUser.techInterest || '');
-      setProfInsta(currentUser.instagramHandle || '');
-      setProfLinkedIn(currentUser.linkedinUrl || '');
-      setProfPhoto(currentUser.photoUrl || '');
-      setProfTheme(currentUser.idCardTheme || 'spidey');
-      setProfPassword(currentUser.password || '');
+    const active = developerProfile || currentUser;
+    if (active) {
+      setProfName(active.name || '');
+      setProfRoll(active.rollNumber ?? 24);
+      setProfDivision(active.division || 'Div A (IT-1)');
+      setProfBranch(active.branch || 'Information Technology');
+      setProfYear(active.year || '1st Year (FE)');
+      setProfGender(active.gender || 'Boys');
+      setProfBatch(active.batch || getBatchFromRoll(active.rollNumber));
+      setProfPhone(active.phoneNumber || '');
+      setProfEmail(active.email || '');
+      setProfBio(active.description || '');
+      setProfTag(active.profileTag || '');
+      setProfTech(active.techInterest || '');
+      setProfInsta(active.instagramHandle || '');
+      setProfLinkedIn(active.linkedinUrl || '');
+      setProfPhoto(active.photoUrl || '');
+      setProfTheme(active.idCardTheme || 'spidey');
+      setProfPassword(active.password || '');
     }
-  }, [currentUser]);
+  }, [developerProfile, currentUser]);
 
   // Admin Custom Credentials Settings State
   const [customUserField, setCustomUserField] = useState(adminCredentials.username);
@@ -231,43 +240,71 @@ export const AdminPanel: React.FC = () => {
   };
 
   const liveAdminStudent: StudentProfile = {
-    id: currentUser?.id || 'std_24',
-    name: profName.trim() || currentUser?.name || 'Priyanshu Gupta',
-    rollNumber: typeof profRoll === 'number' ? profRoll : parseInt(String(profRoll), 10) || currentUser?.rollNumber || 24,
-    division: profDivision || currentUser?.division || 'Div A (IT-1)',
-    branch: profBranch || currentUser?.branch || 'Information Technology',
-    year: profYear || currentUser?.year || '1st Year (FE)',
-    gender: profGender || currentUser?.gender || 'Boys',
-    batch: profBatch || currentUser?.batch || 'BATCH_2',
-    phoneNumber: profPhone || currentUser?.phoneNumber || '09004565878',
-    email: profEmail || currentUser?.email || 'codingtech928@gmail.com',
-    description: profBio || currentUser?.description || 'First Year Information Technology lead developer and administrator.',
-    profileTag: profTag || currentUser?.profileTag || 'Lead Engineer & Admin',
-    techInterest: profTech || currentUser?.techInterest || 'React, Node.js, Python, Cloud',
-    instagramHandle: profInsta || currentUser?.instagramHandle || '',
-    linkedinUrl: profLinkedIn || currentUser?.linkedinUrl || '',
-    photoUrl: profPhoto || currentUser?.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=95',
-    idCardTheme: profTheme || currentUser?.idCardTheme || 'spidey',
-    password: profPassword || currentUser?.password || '1Q2W',
-    role: currentUser?.role || 'DEVELOPER_ADMIN',
-    status: currentUser?.status || 'APPROVED',
-    likes: currentUser?.likes || 24,
-    dislikes: currentUser?.dislikes || 0,
-    likedBy: currentUser?.likedBy || [],
-    dislikedBy: currentUser?.dislikedBy || [],
-    createdAt: currentUser?.createdAt || new Date().toISOString(),
+    id: developerProfile?.id || currentUser?.id || 'std_dev_admin',
+    name: profName.trim() || developerProfile?.name || currentUser?.name || 'Priyanshu Gupta',
+    rollNumber: typeof profRoll === 'number' ? profRoll : parseInt(String(profRoll), 10) || 24,
+    division: profDivision || 'Div A (IT-1)',
+    branch: profBranch || 'Information Technology',
+    year: profYear || '1st Year (FE)',
+    gender: profGender || 'Boys',
+    batch: profBatch || 'BATCH_2',
+    phoneNumber: profPhone || '09004565878',
+    email: profEmail || 'codingtech928@gmail.com',
+    description: profBio || 'First Year Information Technology lead developer and administrator.',
+    profileTag: profTag || 'Lead Engineer & Admin',
+    techInterest: profTech || 'React, Node.js, Python, Cloud',
+    instagramHandle: profInsta || '',
+    linkedinUrl: profLinkedIn || '',
+    photoUrl: profPhoto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=95',
+    idCardTheme: profTheme || 'spidey',
+    password: profPassword || '1Q2W',
+    role: 'DEVELOPER_ADMIN',
+    status: 'APPROVED',
+    likes: developerProfile?.likes || currentUser?.likes || 0,
+    dislikes: 0,
+    likedBy: developerProfile?.likedBy || currentUser?.likedBy || [],
+    dislikedBy: [],
+    createdAt: developerProfile?.createdAt || currentUser?.createdAt || new Date().toISOString(),
     isAdmin: true,
     isDeveloper: true,
   };
 
-  const handleSaveAdminProfile = (e?: React.FormEvent) => {
+  const handleSaveAdminProfile = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const target = currentUser || students.find((s) => s.role === 'DEVELOPER_ADMIN') || students[0];
-    if (!target) return;
     setIsSavingProf(true);
 
-    const finalRoll = typeof profRoll === 'number' ? profRoll : parseInt(String(profRoll), 10) || target.rollNumber;
+    const finalRoll = typeof profRoll === 'number' ? profRoll : parseInt(String(profRoll), 10) || 24;
     const finalBatch = profBatch || getBatchFromRoll(finalRoll);
+
+    if (!hasDevProfile) {
+      const res = await registerDeveloperProfile({
+        name: profName.trim() || 'Priyanshu Gupta',
+        rollNumber: finalRoll,
+        division: profDivision.trim() || 'Div A (IT-1)',
+        branch: profBranch.trim() || 'Information Technology',
+        year: profYear.trim() || '1st Year (FE)',
+        gender: profGender,
+        phoneNumber: profPhone.trim() || '09004565878',
+        email: profEmail.trim() || 'codingtech928@gmail.com',
+        description: profBio.trim(),
+        profileTag: profTag.trim() || 'Lead Engineer & Admin',
+        techInterest: profTech.trim() || 'React, Node.js, Python, Cloud',
+        instagramHandle: profInsta.trim(),
+        linkedinUrl: profLinkedIn.trim(),
+        photoUrl: profPhoto.trim() || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=95',
+        idCardTheme: profTheme,
+        password: profPassword.trim() || '1Q2W',
+      });
+      showToast(res.message);
+      setIsSavingProf(false);
+      return;
+    }
+
+    const target = developerProfile || currentUser;
+    if (!target) {
+      setIsSavingProf(false);
+      return;
+    }
 
     const updates: Partial<StudentProfile> = {
       name: profName.trim() || target.name,
@@ -931,37 +968,71 @@ export const AdminPanel: React.FC = () => {
       {activeAdminTab === 'OVERVIEW' && (
         <div className="space-y-6 font-mono">
           {/* Admin Profile & Digital Card Quick Access Card */}
-          <div className="border-2 border-[#4b2f7e]/80 bg-[#150c28]/60 backdrop-blur-xl p-5 sm:p-6 shadow-[6px_6px_0_rgba(6,4,16,0.65)] flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-mono">
-            <div className="flex items-center gap-3.5">
-              <img
-                src={profPhoto || currentUser?.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=95'}
-                alt={profName}
-                className="w-12 h-12 border-2 border-[#f4e6c8] object-cover shadow-[2px_2px_0_#060410]"
-              />
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h4 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider">{profName}</h4>
-                  <span className="text-[10px] font-bold px-2 py-0.5 bg-[#f47b5c] text-[#1a1030] border border-[#f4e6c8]">
-                    LEAD ADMIN
-                  </span>
+          {!hasDevProfile ? (
+            <div className="border-2 border-[#f9c74f] bg-[#f9c74f]/15 backdrop-blur-xl p-5 sm:p-6 shadow-[6px_6px_0_rgba(6,4,16,0.65)] flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-mono">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 border-2 border-[#f9c74f] bg-[#f9c74f] text-[#1a1030] flex items-center justify-center font-bold text-xl shadow-[2px_2px_0_#060410] shrink-0">
+                  ⚡
                 </div>
-                <p className="text-xs text-[#a08fd4] mt-0.5">
-                  Roll #{profRoll} · {profDivision} · Card Theme: <span className="text-[#f9c74f] font-bold capitalize">{profTheme}</span>
-                </p>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider">
+                      Developer / Admin Profile Not Linked
+                    </h4>
+                    <span className="text-[10px] font-bold px-2 py-0.5 bg-[#f47b5c] text-[#1a1030] border border-[#f4e6c8]">
+                      START HERE
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#b9a7e8] mt-0.5">
+                    Click to load and register your Developer profile so classmates can view you on the directory and leaderboard.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveAdminTab('MY_PROFILE')}
+                  className="pixel-btn text-xs font-mono"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>⚡ Load Your Profile</span>
+                </button>
               </div>
             </div>
+          ) : (
+            <div className="border-2 border-[#4b2f7e]/80 bg-[#150c28]/60 backdrop-blur-xl p-5 sm:p-6 shadow-[6px_6px_0_rgba(6,4,16,0.65)] flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-mono">
+              <div className="flex items-center gap-3.5">
+                <img
+                  src={profPhoto || developerProfile?.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=95'}
+                  alt={profName}
+                  className="w-12 h-12 border-2 border-[#f4e6c8] object-cover shadow-[2px_2px_0_#060410]"
+                />
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider">{profName}</h4>
+                    <span className="text-[10px] font-bold px-2 py-0.5 bg-[#f47b5c] text-[#1a1030] border border-[#f4e6c8]">
+                      DEVELOPER // ADMIN
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#a08fd4] mt-0.5">
+                    Roll #{profRoll} · {profDivision} · Card Theme: <span className="text-[#f9c74f] font-bold capitalize">{profTheme}</span>
+                  </p>
+                </div>
+              </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setActiveAdminTab('MY_PROFILE')}
-                className="pixel-btn text-xs font-mono"
-              >
-                <User className="w-3.5 h-3.5" />
-                <span>▶ Manage Profile & Card</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveAdminTab('MY_PROFILE')}
+                  className="pixel-btn text-xs font-mono"
+                >
+                  <User className="w-3.5 h-3.5" />
+                  <span>▶ Manage Profile & Card</span>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Quick Publishing Center Cards */}
           <div>
@@ -1198,81 +1269,110 @@ export const AdminPanel: React.FC = () => {
       {activeAdminTab === 'MY_PROFILE' && (
         <div className="space-y-6 font-mono">
           {/* Top Profile Header Card */}
-          <div className="border-2 border-[#4b2f7e]/80 bg-[#150c28]/60 backdrop-blur-xl p-5 sm:p-6 shadow-[6px_6px_0_rgba(6,4,16,0.65)] flex flex-col md:flex-row items-start md:items-center justify-between gap-5 font-mono">
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <img
-                  src={profPhoto || currentUser?.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=95'}
-                  alt={profName}
-                  className="w-16 h-16 border-2 border-[#f4e6c8] object-cover shadow-[2px_2px_0_#060410]"
-                />
-                <span className="absolute -bottom-1 -right-1 w-5 h-5 bg-[#52b788] border-2 border-[#1a1030] flex items-center justify-center text-[#1a1030] text-[9px] font-bold">
-                  ✓
+          {!hasDevProfile ? (
+            <div className="border-2 border-[#f9c74f] bg-[#f9c74f]/15 p-5 sm:p-6 shadow-[6px_6px_0_rgba(6,4,16,0.65)] flex flex-col md:flex-row items-start md:items-center justify-between gap-5 font-mono">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 border-2 border-[#f9c74f] bg-[#f9c74f] text-[#1a1030] flex items-center justify-center font-bold text-2xl shadow-[2px_2px_0_#060410] shrink-0">
+                  ⚡
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-xl font-bold text-[#f9c74f] uppercase tracking-wider">
+                      Load & Register Developer Profile
+                    </h3>
+                    <span className="px-2 py-0.5 text-[10px] font-bold bg-[#f47b5c] text-[#1a1030] border border-[#f4e6c8]">
+                      ROLE: DEVELOPER / ADMIN
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#b9a7e8] mt-1 font-mono max-w-2xl leading-relaxed">
+                    Fill out the form below to register and load your official profile. Once submitted, it will be automatically approved and visible to all other students in the directory and leaderboard with the official DEVELOPER / ADMIN mention in front.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap shrink-0">
+                <span className="px-3 py-1.5 bg-[#241548] text-[#f9c74f] border border-[#4b2f7e] text-xs font-bold">
+                  ⚡ Verified Master Access
                 </span>
               </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-xl font-bold text-[#f9c74f] uppercase tracking-wider">
-                    {profName || 'Admin Student'}
-                  </h3>
-                  <span className="px-2 py-0.5 text-[10px] font-bold bg-[#f47b5c] text-[#1a1030] border border-[#f4e6c8]">
-                    DEVELOPER // ADMIN
-                  </span>
-                  <span className="px-2 py-0.5 text-xs font-bold bg-[#241548] text-[#f9c74f] border border-[#4b2f7e] flex items-center gap-1">
-                    <Heart className="w-3.5 h-3.5 text-[#f47b5c] fill-[#f47b5c]" />
-                    <span>{currentUser?.likes || 0} Likes</span>
+            </div>
+          ) : (
+            <div className="border-2 border-[#4b2f7e]/80 bg-[#150c28]/60 backdrop-blur-xl p-5 sm:p-6 shadow-[6px_6px_0_rgba(6,4,16,0.65)] flex flex-col md:flex-row items-start md:items-center justify-between gap-5 font-mono">
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <img
+                    src={profPhoto || developerProfile?.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=95'}
+                    alt={profName}
+                    className="w-16 h-16 border-2 border-[#f4e6c8] object-cover shadow-[2px_2px_0_#060410]"
+                  />
+                  <span className="absolute -bottom-1 -right-1 w-5 h-5 bg-[#52b788] border-2 border-[#1a1030] flex items-center justify-center text-[#1a1030] text-[9px] font-bold">
+                    ✓
                   </span>
                 </div>
-                <p className="text-xs text-[#a08fd4] mt-1 font-mono">
-                  Roll #{profRoll} · {profDivision} · {profBranch} ({profYear})
-                </p>
-                {profTag && (
-                  <span className="inline-block mt-1 text-[11px] font-bold text-[#f9c74f] bg-[#241548]/90 px-2 py-0.5 border border-[#4b2f7e]">
-                    🏷️ {profTag}
-                  </span>
-                )}
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-xl font-bold text-[#f9c74f] uppercase tracking-wider">
+                      {profName}
+                    </h3>
+                    <span className="px-2 py-0.5 text-[10px] font-bold bg-[#f47b5c] text-[#1a1030] border border-[#f4e6c8]">
+                      DEVELOPER // ADMIN
+                    </span>
+                    <span className="px-2 py-0.5 text-xs font-bold bg-[#241548] text-[#f9c74f] border border-[#4b2f7e] flex items-center gap-1">
+                      <Heart className="w-3.5 h-3.5 text-[#f47b5c] fill-[#f47b5c]" />
+                      <span>{developerProfile?.likes || 0} Likes</span>
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#a08fd4] mt-1 font-mono">
+                    Roll #{profRoll} · {profDivision} · {profBranch} ({profYear})
+                  </p>
+                  {profTag && (
+                    <span className="inline-block mt-1 text-[11px] font-bold text-[#f9c74f] bg-[#241548]/90 px-2 py-0.5 border border-[#4b2f7e]">
+                      🏷️ {profTag}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Action Dock */}
+              <div className="flex items-center gap-2 flex-wrap shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setViewingStudent(liveAdminStudent)}
+                  className="pixel-btn text-xs"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span>Full ID Card Modal</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveAdminTab('NOTES')}
+                  className="pixel-btn-secondary text-xs"
+                >
+                  <FileText className="w-3.5 h-3.5 text-[#f9c74f]" />
+                  <span>Upload Notes</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveAdminTab('RESOURCES')}
+                  className="pixel-btn-secondary text-xs"
+                >
+                  <FolderArchive className="w-3.5 h-3.5 text-[#f47b5c]" />
+                  <span>Upload Resource</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveAdminTab('NOTICES')}
+                  className="pixel-btn-secondary text-xs"
+                >
+                  <Megaphone className="w-3.5 h-3.5 text-[#f9c74f]" />
+                  <span>Post Notice</span>
+                </button>
               </div>
             </div>
-
-            {/* Quick Action Dock */}
-            <div className="flex items-center gap-2 flex-wrap shrink-0">
-              <button
-                type="button"
-                onClick={() => setViewingStudent(liveAdminStudent)}
-                className="pixel-btn text-xs"
-              >
-                <Eye className="w-4 h-4" />
-                <span>Full ID Card Modal</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveAdminTab('NOTES')}
-                className="pixel-btn-secondary text-xs"
-              >
-                <FileText className="w-3.5 h-3.5 text-[#f9c74f]" />
-                <span>Upload Notes</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveAdminTab('RESOURCES')}
-                className="pixel-btn-secondary text-xs"
-              >
-                <FolderArchive className="w-3.5 h-3.5 text-[#f47b5c]" />
-                <span>Upload Resource</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveAdminTab('NOTICES')}
-                className="pixel-btn-secondary text-xs"
-              >
-                <Megaphone className="w-3.5 h-3.5 text-[#f9c74f]" />
-                <span>Post Notice</span>
-              </button>
-            </div>
-          </div>
+          )}
 
           {/* Two-Column Editor Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start font-mono">
@@ -1641,7 +1741,9 @@ export const AdminPanel: React.FC = () => {
                 {/* Save Profile Button */}
                 <div className="pt-3 border-t-2 border-[#4b2f7e] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <span className="text-xs text-[#a08fd4]">
-                    All changes sync live to the student directory & ID card
+                    {!hasDevProfile
+                      ? 'Once registered, your profile will be immediately visible on directory & leaderboard.'
+                      : 'All changes sync live to the student directory & ID card'}
                   </span>
                   <button
                     type="submit"
@@ -1649,7 +1751,13 @@ export const AdminPanel: React.FC = () => {
                     className="pixel-btn text-xs font-mono"
                   >
                     <Save className="w-4 h-4" />
-                    <span>{isSavingProf ? 'Saving Changes...' : '▶ Save Profile Changes'}</span>
+                    <span>
+                      {isSavingProf
+                        ? 'Publishing Profile...'
+                        : !hasDevProfile
+                        ? '⚡ Register & Publish Developer Profile'
+                        : '▶ Save Profile Changes'}
+                    </span>
                   </button>
                 </div>
               </form>

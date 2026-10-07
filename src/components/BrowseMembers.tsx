@@ -336,6 +336,14 @@ export const BrowseMembers: React.FC = () => {
                     />
                   </div>
 
+                  {/* Developer / Admin Mention */}
+                  {(student.role === 'DEVELOPER_ADMIN' || student.isDeveloper) && (
+                    <div className="mb-2 inline-flex items-center gap-1 px-2.5 py-0.5 bg-[#f9c74f] text-[#1a1030] border border-[#f4e6c8] font-mono text-[10px] font-extrabold uppercase shadow-[2px_2px_0_#060410]">
+                      <span>⚡</span>
+                      <span>DEVELOPER / ADMIN</span>
+                    </div>
+                  )}
+
                   {/* Name */}
                   <h4 className="text-xs sm:text-sm md:text-base font-bold text-white group-hover:text-[#f9c74f] transition-colors truncate max-w-full font-mono uppercase tracking-wide">
                     {student.name}

@@ -353,9 +353,16 @@ export const GenZIdCard: React.FC<GenZIdCardProps> = ({
                 <User className="w-4 h-4 stroke-[2.5]" />
               </div>
               <div className="min-w-0 flex-1">
-                <span className="text-[9px] font-black uppercase tracking-widest opacity-70 block">
-                  NAME
-                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[9px] font-black uppercase tracking-widest opacity-70 block">
+                    NAME
+                  </span>
+                  {(student.role === 'DEVELOPER_ADMIN' || student.isDeveloper) && (
+                    <span className="px-1.5 py-0.2 bg-black text-[#FFE600] border border-[#FFE600] text-[8px] font-mono font-black uppercase tracking-wider">
+                      ⚡ DEVELOPER / ADMIN
+                    </span>
+                  )}
+                </div>
                 <span className="text-base font-black uppercase tracking-tight block truncate">
                   {student.name}
                 </span>
