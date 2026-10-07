@@ -1,0 +1,6 @@
+{
+  "name": "NexusIT - First Year IT Engineering Hub",
+  "description": "Modern academic collaboration hub for first-year IT Engineering featuring batch directory, note exchange, academic resources, notices, and interactive student ID cards.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

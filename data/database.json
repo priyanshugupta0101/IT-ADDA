@@ -1,0 +1,41 @@
+{
+  "students": [],
+  "noteRequests": [],
+  "resources": [],
+  "notices": [],
+  "chatMessages": [],
+  "campusVibeConfig": {
+    "title": "Today's Campus Vibe",
+    "subtitle": "Tap what describes your study mood today",
+    "options": [
+      {
+        "id": "grind",
+        "label": "Midsem / Exam Grind",
+        "icon": "📚",
+        "count": 0
+      },
+      {
+        "id": "hack",
+        "label": "Coding & Projects",
+        "icon": "💻",
+        "count": 0
+      },
+      {
+        "id": "canteen",
+        "label": "Canteen & Chill",
+        "icon": "☕",
+        "count": 0
+      },
+      {
+        "id": "lab",
+        "label": "Lab Submissions",
+        "icon": "⚡",
+        "count": 0
+      }
+    ]
+  },
+  "adminCredentials": {
+    "username": "admin",
+    "password": "password123"
+  }
+}
