@@ -16,11 +16,12 @@ export const TopLeaderboard: React.FC<TopLeaderboardProps> = ({ onSelectStudent 
   const { students, theme } = useApp();
 
   const isDark = theme === 'dark';
-  const totalMembers = students.length;
+  const approvedStudents = students.filter((s) => s.status === 'APPROVED');
+  const totalMembers = approvedStudents.length;
 
-  const top10Students = [...students]
-    .filter((s) => s.status === 'APPROVED')
-    .sort((a, b) => b.likes - a.likes)
+  const top10Students = [...approvedStudents]
+    .filter((s) => (s.likes || 0) > 0)
+    .sort((a, b) => (b.likes || 0) - (a.likes || 0))
     .slice(0, 10);
 
   return (
@@ -162,18 +163,8 @@ export const TopLeaderboard: React.FC<TopLeaderboardProps> = ({ onSelectStudent 
                     </div>
                   </div>
 
-                  {/* 4. STREAK BADGE & NO. OF LIKES */}
+                  {/* 4. NO. OF LIKES */}
                   <div className="flex items-center gap-2 shrink-0">
-                    {(student.streak ?? 0) > 0 && (
-                      <div
-                        className="hidden sm:flex items-center gap-1 px-2.5 py-1 bg-[#f47b5c]/20 border border-[#f47b5c]/50 font-bold font-mono text-xs text-[#f47b5c]"
-                        title={`Daily Study Streak: ${student.streak} Days`}
-                      >
-                        <Flame className="w-3.5 h-3.5 animate-pulse" />
-                        <span>{student.streak}d</span>
-                      </div>
-                    )}
-
                     <div
                       className="flex items-center gap-1.5 px-3 py-1 bg-[#241548] border-2 border-[#4b2f7e] font-bold font-mono text-xs text-[#f47b5c] shadow-[2px_2px_0_#060410] whitespace-nowrap"
                     >
@@ -191,10 +182,10 @@ export const TopLeaderboard: React.FC<TopLeaderboardProps> = ({ onSelectStudent 
           <div className="p-12 text-center bg-[#150c28]">
             <Trophy className="w-10 h-10 text-[#a08fd4] mx-auto mb-3" />
             <h3 className="text-sm font-semibold font-mono text-white">
-              Honor Roll Awaiting First Entries
+              No Liked Profiles Yet
             </h3>
             <p className="text-xs mt-1 max-w-sm mx-auto text-[#a08fd4] font-mono">
-              Register your student profile to claim rank #1 on the class leaderboard!
+              Profiles with at least 1 like will appear on the Top 10 Leaderboard. Upvote your batchmates to rank them here!
             </p>
           </div>
         )}

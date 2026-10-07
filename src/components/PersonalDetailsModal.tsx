@@ -19,7 +19,6 @@ import {
   CreditCard,
   FileText,
   LogOut,
-  Flame,
 } from 'lucide-react';
 
 export const PersonalDetailsModal: React.FC = () => {
@@ -176,10 +175,6 @@ export const PersonalDetailsModal: React.FC = () => {
                 <h3 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider">
                   Edit Profile & Digital ID Card
                 </h3>
-                <span className="px-2 py-0.5 bg-[#f47b5c]/20 border border-[#f47b5c]/50 text-[#f47b5c] text-[10px] font-bold font-mono flex items-center gap-1">
-                  <Flame className="w-3 h-3 animate-pulse" />
-                  <span>{currentUser.streak || 0}d Streak</span>
-                </span>
               </div>
               <p className="text-xs text-[#a08fd4]">
                 Customize your name, roll number, photo, bio, and style

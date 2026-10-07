@@ -14,7 +14,6 @@ import {
   ZoomIn,
   ZoomOut,
   ShieldCheck,
-  Flame,
 } from 'lucide-react';
 
 export const StudentIdCardModal: React.FC = () => {
@@ -208,12 +207,6 @@ export const StudentIdCardModal: React.FC = () => {
                 ID: {viewingStudent.id}
               </span>
               <span className="text-[#e2a87a] font-mono text-[11px]">Roll #{String(viewingStudent.rollNumber).padStart(2, '0')}</span>
-              {(viewingStudent.streak ?? 0) > 0 && (
-                <span className="px-1.5 py-0.5 bg-[#f47b5c]/25 text-[#f47b5c] border border-[#f47b5c]/60 font-mono font-bold text-[10px] flex items-center gap-1">
-                  <Flame className="w-3 h-3 text-[#f47b5c]" />
-                  <span>{viewingStudent.streak}d Streak</span>
-                </span>
-              )}
               <span className="text-[#a05282]">·</span>
               <span className="text-[#c8a8d8] text-[11px]">{viewingStudent.division}</span>
             </div>
@@ -359,12 +352,6 @@ export const StudentIdCardModal: React.FC = () => {
                 ID: {viewingStudent.id}
               </span>
               <span className="text-[#e2a87a] font-mono text-[11px]">#{viewingStudent.rollNumber}</span>
-              {(viewingStudent.streak ?? 0) > 0 && (
-                <span className="px-1.5 py-0.5 bg-[#f47b5c]/25 text-[#f47b5c] border border-[#f47b5c]/60 font-mono font-bold text-[10px] flex items-center gap-1">
-                  <Flame className="w-3 h-3 text-[#f47b5c]" />
-                  <span>{viewingStudent.streak}d Streak</span>
-                </span>
-              )}
               <span className="text-[#a05282]">·</span>
               <span className="text-[#c8a8d8] text-[11px]">{viewingStudent.division}</span>
             </div>

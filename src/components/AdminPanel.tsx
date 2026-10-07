@@ -3564,7 +3564,7 @@ export const AdminPanel: React.FC = () => {
               <div className="p-3 bg-[#d34c53]/15 border-2 border-[#d34c53] space-y-2">
                 <h5 className="text-xs font-bold text-[#fff4d6] uppercase">4. Hard Wipe Database (Clean Launch Slate)</h5>
                 <p className="text-[11px] text-[#b9a7e8]">
-                  Clears all students (0 members), notes, circulars, and messages across client and server.
+                  Clears all students (0 members), notes, circulars, and chat messages across client and server.
                 </p>
                 {!confirmWipeActive ? (
                   <button

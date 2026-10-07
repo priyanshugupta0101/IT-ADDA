@@ -179,13 +179,6 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
 
           {currentUser ? (
             <div className="flex items-stretch">
-              <div
-                className="hidden sm:flex items-center gap-1 px-2.5 bg-[#150c28]/90 text-[#f47b5c] border-l-2 border-[#4b2f7e] font-mono text-xs font-bold"
-                title={`Your Daily Study Streak: ${currentUser.streak || 0} Days`}
-              >
-                <Flame className="w-3.5 h-3.5 text-[#f47b5c] animate-pulse" />
-                <span>{currentUser.streak || 0}d</span>
-              </div>
               <button
                 onClick={handleOpenMyProfile}
                 className="px-3.5 sm:px-4 bg-[#241548] hover:bg-[#3a2170] text-[#f9c74f] hover:text-[#fff4d6] border-l-2 border-[#4b2f7e] transition-colors cursor-pointer flex items-center justify-center gap-1.5 font-mono text-xs"

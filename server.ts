@@ -47,6 +47,7 @@ interface DatabaseState {
   resources: any[];
   notices: any[];
   chatMessages: any[];
+  campusStreak?: number;
   campusVibeConfig?: CampusVibeConfig;
   adminCredentials?: { username: string; password: string };
 }
@@ -57,6 +58,7 @@ let dbState: DatabaseState = {
   resources: [],
   notices: [],
   chatMessages: [],
+  campusStreak: 0,
   campusVibeConfig: DEFAULT_VIBE_CONFIG,
   adminCredentials: { username: 'admin', password: 'admin' },
 };
@@ -73,6 +75,7 @@ function loadDatabase(): DatabaseState {
         resources: Array.isArray(parsed.resources) ? parsed.resources : [],
         notices: Array.isArray(parsed.notices) ? parsed.notices : [],
         chatMessages: Array.isArray(parsed.chatMessages) ? parsed.chatMessages : [],
+        campusStreak: typeof parsed.campusStreak === 'number' ? parsed.campusStreak : 0,
         campusVibeConfig: parsed.campusVibeConfig && Array.isArray(parsed.campusVibeConfig.options)
           ? parsed.campusVibeConfig
           : DEFAULT_VIBE_CONFIG,
@@ -90,6 +93,7 @@ function loadDatabase(): DatabaseState {
     resources: [],
     notices: [],
     chatMessages: [],
+    campusStreak: 0,
     campusVibeConfig: DEFAULT_VIBE_CONFIG,
     adminCredentials: { username: 'admin', password: 'admin' },
   };
@@ -486,6 +490,7 @@ app.post('/api/admin/reset', (req, res) => {
       resources: [],
       notices: [],
       chatMessages: [],
+      campusStreak: 0,
       campusVibeConfig: DEFAULT_VIBE_CONFIG,
       adminCredentials: dbState.adminCredentials || { username: 'admin', password: 'password123' },
     };
@@ -493,6 +498,35 @@ app.post('/api/admin/reset', (req, res) => {
     broadcast('DATABASE_RESET', { mode: 'wipe', database: dbState });
     return res.json({ success: true, message: 'All database records wiped clean successfully', database: dbState });
   }
+});
+
+// Campus Streak endpoints
+app.get('/api/campus-streak', (_req, res) => {
+  res.json({ success: true, campusStreak: dbState.campusStreak || 0 });
+});
+
+app.post('/api/campus-streak/increment', (req, res) => {
+  const { studentId } = req.body || {};
+  dbState.campusStreak = (dbState.campusStreak || 0) + 1;
+
+  if (studentId) {
+    const sIdx = dbState.students.findIndex((s) => s.id === studentId);
+    if (sIdx !== -1) {
+      const currentStreak = dbState.students[sIdx].streak || 0;
+      const newStreak = currentStreak + 1;
+      const longest = Math.max(dbState.students[sIdx].longestStreak || 0, newStreak);
+      dbState.students[sIdx] = {
+        ...dbState.students[sIdx],
+        streak: newStreak,
+        longestStreak: longest,
+        lastActiveDate: new Date().toISOString().slice(0, 10),
+      };
+    }
+  }
+
+  saveDatabase();
+  broadcast('CAMPUS_STREAK_UPDATED', { campusStreak: dbState.campusStreak, database: dbState });
+  res.json({ success: true, campusStreak: dbState.campusStreak });
 });
 
 // Admin credentials endpoints

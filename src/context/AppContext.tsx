@@ -52,6 +52,10 @@ interface AppContextType {
   updateCampusVibeConfig: (config: { title?: string; subtitle?: string; options?: CampusVibeOption[] }) => Promise<void>;
   voteCampusVibe: (optionId: string, previousOptionId?: string) => Promise<void>;
 
+  // Campus Streak
+  campusStreak: number;
+  incrementCampusStreak: () => Promise<void>;
+
   students: StudentProfile[];
   currentUser: StudentProfile | null;
   setCurrentUser: (user: StudentProfile | null) => void;
@@ -437,6 +441,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // --------------------------------------------------------------------------
+  // Campus Study Streak State & Methods
+  // --------------------------------------------------------------------------
+  const [campusStreak, setCampusStreak] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('nexusit_campus_streak');
+      return saved ? parseInt(saved, 10) || 0 : 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('nexusit_campus_streak', String(campusStreak));
+    } catch {}
+  }, [campusStreak]);
+
+  const incrementCampusStreak = async () => {
+    soundEngine.playStreakIgnite();
+    setCampusStreak((prev) => prev + 1);
+
+    if (currentUser) {
+      const today = new Date().toISOString().slice(0, 10);
+      const newStreak = (currentUser.streak || 0) + 1;
+      const longest = Math.max(currentUser.longestStreak || 0, newStreak);
+      const updatedUser = {
+        ...currentUser,
+        streak: newStreak,
+        longestStreak: longest,
+        lastActiveDate: today,
+      };
+      setCurrentUser(updatedUser);
+      setStudents((prev) => prev.map((s) => (s.id === currentUser.id ? updatedUser : s)));
+    }
+
+    try {
+      const res = await fetch('/api/campus-streak/increment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId: currentUser?.id }),
+      });
+      const data = await res.json();
+      if (typeof data.campusStreak === 'number') {
+        setCampusStreak(data.campusStreak);
+      }
+    } catch (err) {
+      console.error('Error incrementing campus streak:', err);
+    }
+  };
+
   // Modals state
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [viewingStudent, setViewingStudent] = useState<StudentProfile | null>(null);
@@ -543,6 +598,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (data && Array.isArray(data.chatMessages)) setChatMessages(data.chatMessages);
         if (data && data.campusVibeConfig && Array.isArray(data.campusVibeConfig.options)) {
           setCampusVibeConfig(data.campusVibeConfig);
+        }
+        if (typeof data.campusStreak === 'number') {
+          setCampusStreak(data.campusStreak);
         }
       } catch (err) {
         console.warn('Initial fetch from server database skipped or offline:', err);
@@ -734,6 +792,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       });
 
+      eventSource.addEventListener('CAMPUS_STREAK_UPDATED', (e: MessageEvent) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (typeof payload.campusStreak === 'number') {
+            setCampusStreak(payload.campusStreak);
+          }
+          if (payload.database?.students) {
+            setStudents(payload.database.students);
+          }
+        } catch (err) {
+          console.error('Error handling CAMPUS_STREAK_UPDATED SSE event:', err);
+        }
+      });
+
       eventSource.addEventListener('DATABASE_RESET', (e: MessageEvent) => {
         try {
           const payload = JSON.parse(e.data);
@@ -743,6 +815,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setResources(payload.database.resources || []);
             setNotices(payload.database.notices || []);
             setChatMessages(payload.database.chatMessages || []);
+            setCampusStreak(payload.database.campusStreak ?? 0);
             if (payload.database.campusVibeConfig) {
               setCampusVibeConfig(payload.database.campusVibeConfig);
             }
@@ -752,7 +825,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setResources([]);
             setNotices([]);
             setChatMessages([]);
+            setCampusStreak(0);
           }
+          localStorage.setItem('nexusit_campus_streak', '0');
           if (payload.mode === 'wipe') {
             localStorage.setItem('nexusit_db_wiped', 'true');
             setCurrentUser(null);
@@ -1693,6 +1768,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'nexusit_unread_badges_live',
         'nexusit_today_vibe',
         'nexusit_campus_vibe_config',
+        'nexusit_campus_streak',
       ];
       ALL_KEYS.forEach((k) => {
         try {
@@ -1708,6 +1784,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setResources([]);
         setNotices([]);
         setChatMessages([]);
+        setCampusStreak(0);
         setCampusVibeConfig({
           ...DEFAULT_CAMPUS_VIBE,
           options: DEFAULT_CAMPUS_VIBE.options.map((o) => ({ ...o, count: 0 })),
@@ -1730,6 +1807,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (data.database.campusVibeConfig) {
           setCampusVibeConfig(data.database.campusVibeConfig);
         }
+        setCampusStreak(data.database.campusStreak ?? 0);
       }
 
       soundEngine.playSuccess();
@@ -1819,6 +1897,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         campusVibeConfig,
         updateCampusVibeConfig,
         voteCampusVibe,
+        campusStreak,
+        incrementCampusStreak,
         developerFooterConfig,
         updateDeveloperFooterConfig,
       }}

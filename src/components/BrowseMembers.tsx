@@ -11,7 +11,6 @@ import {
   Heart,
   ThumbsDown,
   Sparkles,
-  Flame,
 } from 'lucide-react';
 
 type FilterTab = 'ALL' | 'BATCH_1' | 'BATCH_2' | 'BATCH_3';
@@ -347,21 +346,12 @@ export const BrowseMembers: React.FC = () => {
                     {student.techInterest || student.profileTag || 'First Year IT'}
                   </p>
 
-                  {/* Bottom info row: Roll & Streak & Quick Like/Dislike buttons */}
+                  {/* Bottom info row: Roll & Quick Like/Dislike buttons */}
                   <div className="w-full mt-3 pt-3 border-t-2 border-[#4b2f7e] flex items-center justify-between gap-1 flex-wrap">
                     <div className="flex items-center gap-1.5">
                       <span className="font-mono text-[10px] sm:text-xs font-bold px-2 py-0.5 bg-[#241548]/80 text-[#f9c74f] border border-[#4b2f7e] inline-block">
                         #{String(student.rollNumber).padStart(2, '0')}
                       </span>
-                      {(student.streak ?? 0) > 0 && (
-                        <span
-                          className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-[#f47b5c]/20 text-[#f47b5c] border border-[#f47b5c]/40 flex items-center gap-0.5"
-                          title={`Study Streak: ${student.streak} Days`}
-                        >
-                          <Flame className="w-2.5 h-2.5" />
-                          <span>{student.streak}d</span>
-                        </span>
-                      )}
                     </div>
 
                     <div className="flex items-center gap-1.5">

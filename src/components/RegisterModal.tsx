@@ -235,24 +235,16 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
                 </p>
               </div>
 
-              <div className="flex justify-center gap-3 pt-4">
+              <div className="flex flex-col items-center gap-2 pt-4">
                 <button
                   onClick={handleClose}
-                  className="pixel-btn-secondary text-xs"
+                  className="pixel-btn text-xs py-2 px-6"
                 >
-                  Return to Portal
+                  Explore the Platform
                 </button>
-                {onOpenAdminPanel && (
-                  <button
-                    onClick={() => {
-                      handleClose();
-                      onOpenAdminPanel();
-                    }}
-                    className="pixel-btn text-xs"
-                  >
-                    Open Admin Queue →
-                  </button>
-                )}
+                <p className="text-[11px] text-[#f47b5c] font-mono tracking-wide">
+                  Until admin approves your application
+                </p>
               </div>
             </div>
           ) : activeTab === 'REGISTER' ? (

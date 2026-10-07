@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { TopLeaderboard } from './components/TopLeaderboard';
-import { StudentStreakSection } from './components/StudentStreakSection';
 import { BrowseMembers } from './components/BrowseMembers';
 import { NotesSection } from './components/NotesSection';
 import { ImpResourcesSection } from './components/ImpResourcesSection';
@@ -108,34 +107,22 @@ function MainContent() {
                 className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl pointer-events-none bg-[#f47b5c]/10"
               />
 
-              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div>
-                  <div
-                    className="inline-flex items-center gap-2 px-3 py-1 border border-[#f4e6c8]/50 bg-[#241548]/70 backdrop-blur-md text-[#f9c74f] text-xs font-mono font-semibold mb-3 shadow-[2px_2px_0_#060410]"
-                  >
-                    <span className="w-2 h-2 bg-[#f47b5c] animate-pulse" />
-                    <span>Department of Information Technology · Division A (2026–2027)</span>
-                  </div>
-                  <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-tight font-headline text-white">
-                    Welcome to{' '}
-                    <span className="text-[#f9c74f] drop-shadow-[0_2px_12px_rgba(249,199,79,0.35)]">
-                      IT Adda
-                    </span>
-                  </h1>
-                  <p className="text-xs sm:text-sm text-[#b9a7e8] font-mono mt-2 max-w-xl">
-                    Official academic collaboration portal. Access peer-reviewed notes, exam PYQs, official circulars, and connect with batchmates.
-                  </p>
+              <div className="relative z-10">
+                <div
+                  className="inline-flex items-center gap-2 px-3 py-1 border border-[#f4e6c8]/50 bg-[#241548]/70 backdrop-blur-md text-[#f9c74f] text-xs font-mono font-semibold mb-3 shadow-[2px_2px_0_#060410]"
+                >
+                  <span className="w-2 h-2 bg-[#f47b5c] animate-pulse" />
+                  <span>Department of Information Technology · Division A (2026–2027)</span>
                 </div>
-
-                <div className="flex items-center gap-3 shrink-0">
-                  <div className="border-2 border-[#4b2f7e] bg-[#1a1030]/80 p-4 shadow-[4px_4px_0_#060410] text-center min-w-[200px]">
-                    <span className="text-[10px] text-[#f47b5c] uppercase font-bold font-mono tracking-widest block">
-                      ● SYSTEM STATUS
-                    </span>
-                    <p className="text-base font-bold text-white font-mono mt-1">FE IT PORTAL // ACTIVE</p>
-                    <span className="text-[11px] text-[#a08fd4] font-mono block mt-0.5">Division A · Batch 1/2/3</span>
-                  </div>
-                </div>
+                <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-tight font-headline text-white">
+                  Welcome to{' '}
+                  <span className="text-[#f9c74f] drop-shadow-[0_2px_12px_rgba(249,199,79,0.35)]">
+                    IT Adda
+                  </span>
+                </h1>
+                <p className="text-xs sm:text-sm text-[#b9a7e8] font-mono mt-2 max-w-xl">
+                  Academic collaboration hub for notes, PYQs, and notices.
+                </p>
               </div>
 
               {/* Interactive Daily Campus Vibe Poll (Fully customized from Admin Panel) */}
@@ -227,11 +214,6 @@ function MainContent() {
                   })}
                 </div>
               </div>
-            </div>
-
-            {/* Dedicated Student Streak Counter Section */}
-            <div className="pt-1">
-              <StudentStreakSection onSelectStudent={(student) => setViewingStudent(student)} />
             </div>
 
             {/* Leaderboard Section (With the required Centered Total Number of Members Box) */}

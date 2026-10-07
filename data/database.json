@@ -4,6 +4,7 @@
   "resources": [],
   "notices": [],
   "chatMessages": [],
+  "campusStreak": 0,
   "campusVibeConfig": {
     "title": "Today's Campus Vibe",
     "subtitle": "Tap what describes your study mood today",
