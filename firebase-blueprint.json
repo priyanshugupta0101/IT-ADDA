@@ -1,0 +1,127 @@
+{
+  "entities": {
+    "Student": {
+      "title": "Student",
+      "description": "Student profile registered on IT Adda",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "rollNumber": { "type": "number" },
+        "division": { "type": "string" },
+        "branch": { "type": "string" },
+        "year": { "type": "string" },
+        "gender": { "type": "string" },
+        "batch": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "email": { "type": "string" },
+        "password": { "type": "string" },
+        "description": { "type": "string" },
+        "profileTag": { "type": "string" },
+        "techInterest": { "type": "string" },
+        "instagramHandle": { "type": "string" },
+        "linkedinUrl": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "idCardTheme": { "type": "string" },
+        "role": { "type": "string" },
+        "status": { "type": "string" },
+        "likes": { "type": "number" },
+        "dislikes": { "type": "number" },
+        "likedBy": { "type": "array" },
+        "dislikedBy": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "isAdmin": { "type": "boolean" },
+        "isDeveloper": { "type": "boolean" }
+      },
+      "required": ["id", "name", "rollNumber", "status"]
+    },
+    "NoteRequest": {
+      "title": "NoteRequest",
+      "description": "Student notes request and fulfillments",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "subject": { "type": "string" },
+        "topic": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "subject", "topic"]
+    },
+    "ResourceItem": {
+      "title": "ResourceItem",
+      "description": "Academic resources and PYQs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "subject": { "type": "string" },
+        "category": { "type": "string" }
+      },
+      "required": ["id", "title", "subject", "category"]
+    },
+    "NoticeItem": {
+      "title": "NoticeItem",
+      "description": "Department circulars and announcements",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "category": { "type": "string" },
+        "postedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "content"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Public campus chat message",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "senderId", "senderName", "text"]
+    },
+    "CampusVibe": {
+      "title": "CampusVibe",
+      "description": "Daily poll mood and vote counts",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "options": { "type": "array" }
+      },
+      "required": ["title", "options"]
+    }
+  },
+  "firestore": {
+    "/students/{studentId}": {
+      "schema": "Student",
+      "description": "Student registration requests and approved member profiles"
+    },
+    "/noteRequests/{requestId}": {
+      "schema": "NoteRequest",
+      "description": "Student notes requests"
+    },
+    "/resources/{resourceId}": {
+      "schema": "ResourceItem",
+      "description": "University and academic resources"
+    },
+    "/notices/{noticeId}": {
+      "schema": "NoticeItem",
+      "description": "Official campus circulars and notices"
+    },
+    "/chatMessages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Public community chat messages"
+    },
+    "/config/campusVibe": {
+      "schema": "CampusVibe",
+      "description": "Campus daily mood poll settings and counts"
+    }
+  }
+}

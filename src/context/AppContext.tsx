@@ -19,6 +19,36 @@ import {
 } from '../data/seedData';
 import { getBatchFromRoll } from '../utils/studentUtils';
 import { soundEngine } from '../utils/soundEffects';
+import {
+  subscribeToStudents,
+  subscribeToNoteRequests,
+  subscribeToResources,
+  subscribeToNotices,
+  subscribeToChatMessages,
+  subscribeToCampusVibe,
+  subscribeToDeveloperFooter,
+  subscribeToAdminCredentials,
+  saveStudentDoc,
+  updateStudentDoc,
+  deleteStudentDoc,
+  saveNoteRequestDoc,
+  updateNoteRequestDoc,
+  deleteNoteRequestDoc,
+  saveResourceDoc,
+  deleteResourceDoc,
+  saveNoticeDoc,
+  updateNoticeDoc,
+  deleteNoticeDoc,
+  saveChatMessageDoc,
+  updateChatMessageDoc,
+  saveCampusVibeConfig,
+  saveDeveloperFooterDoc,
+  saveAdminCredentialsDoc,
+  resetAllStudentLikesInFirestore,
+  resetCampusVibeVotesInFirestore,
+  wipeAllDataInFirestore,
+  DEFAULT_CAMPUS_VIBE as FIRESTORE_DEFAULT_VIBE,
+} from '../services/firestoreService';
 
 export interface UnreadBadges {
   notices: number;
@@ -187,7 +217,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [noteRequests, setNoteRequests] = useState<NoteRequest[]>(() => {
     try {
       const saved = localStorage.getItem('nexusit_portal_note_requests_live');
-      return saved ? JSON.parse(saved) : INITIAL_NOTE_REQUESTS;
+      return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
@@ -197,7 +227,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [resources, setResources] = useState<ResourceItem[]>(() => {
     try {
       const saved = localStorage.getItem('nexusit_portal_resources_live');
-      return saved ? JSON.parse(saved) : INITIAL_RESOURCES;
+      return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
@@ -207,7 +237,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [notices, setNotices] = useState<NoticeItem[]>(() => {
     try {
       const saved = localStorage.getItem('nexusit_portal_notices_live');
-      return saved ? JSON.parse(saved) : INITIAL_NOTICES;
+      return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
@@ -217,7 +247,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
     try {
       const saved = localStorage.getItem('nexusit_portal_chat_live');
-      return saved ? JSON.parse(saved) : INITIAL_CHAT;
+      return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
@@ -362,6 +392,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         localStorage.setItem('nexusit_footer_credits', JSON.stringify(next));
       } catch {}
+      saveDeveloperFooterDoc(next).catch((err) => console.error('Error saving footer to Firestore:', err));
       return next;
     });
   };
@@ -395,11 +426,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [campusVibeConfig]);
 
   const updateCampusVibeConfig = async (newConfig: { title?: string; subtitle?: string; options?: CampusVibeOption[] }) => {
-    setCampusVibeConfig((prev) => ({
-      title: newConfig.title !== undefined && newConfig.title.trim() ? newConfig.title.trim() : prev.title,
-      subtitle: newConfig.subtitle !== undefined ? newConfig.subtitle.trim() : prev.subtitle,
-      options: newConfig.options || prev.options,
-    }));
+    const updated = {
+      title: newConfig.title !== undefined && newConfig.title.trim() ? newConfig.title.trim() : campusVibeConfig.title,
+      subtitle: newConfig.subtitle !== undefined ? newConfig.subtitle.trim() : campusVibeConfig.subtitle,
+      options: newConfig.options || campusVibeConfig.options,
+    };
+    setCampusVibeConfig(updated);
+    saveCampusVibeConfig(updated).catch((err) => console.error('Error saving vibe to Firestore:', err));
 
     try {
       const res = await fetch('/api/vibe', {
@@ -418,14 +451,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const voteCampusVibe = async (optionId: string, previousOptionId?: string) => {
     soundEngine.playVibePop();
-    setCampusVibeConfig((prev) => ({
-      ...prev,
-      options: prev.options.map((opt) => {
-        if (opt.id === optionId) return { ...opt, count: opt.count + 1 };
-        if (previousOptionId && opt.id === previousOptionId) return { ...opt, count: Math.max(0, opt.count - 1) };
-        return opt;
-      }),
-    }));
+    const updatedOptions = campusVibeConfig.options.map((opt) => {
+      if (opt.id === optionId) return { ...opt, count: opt.count + 1 };
+      if (previousOptionId && opt.id === previousOptionId) return { ...opt, count: Math.max(0, opt.count - 1) };
+      return opt;
+    });
+    const updated = {
+      ...campusVibeConfig,
+      options: updatedOptions,
+    };
+    setCampusVibeConfig(updated);
+    saveCampusVibeConfig(updated).catch((err) => console.error('Error saving vibe vote to Firestore:', err));
 
     try {
       const res = await fetch('/api/vibe/vote', {
@@ -565,10 +601,65 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [students, currentUser]);
 
   // --------------------------------------------------------------------------
-  // Multi-Device Real-Time Sync & Server-Sent Events (SSE)
+  // Multi-Device Real-Time Sync: Google Firestore Live WebSockets + SSE
   // --------------------------------------------------------------------------
   useEffect(() => {
-    // 1. Initial State Fetch from backend
+    // 1. Google Cloud Firestore Live Subscriptions (Instant multi-device sync)
+    const unsubStudents = subscribeToStudents((liveStudents) => {
+      setStudents(liveStudents);
+      setIsRealtimeConnected(true);
+
+      // Keep currentUser in sync if updated by admin
+      if (currentUserRef.current) {
+        const matched = liveStudents.find((s) => s.id === currentUserRef.current?.id);
+        if (matched) {
+          setCurrentUser(matched);
+        }
+      }
+    });
+
+    const unsubNotes = subscribeToNoteRequests((requests) => {
+      setNoteRequests(requests);
+    });
+
+    const unsubResources = subscribeToResources((resList) => {
+      setResources(resList);
+    });
+
+    const unsubNotices = subscribeToNotices((noticesList) => {
+      setNotices(noticesList);
+    });
+
+    const unsubChat = subscribeToChatMessages((messages) => {
+      setChatMessages(messages);
+    });
+
+    const unsubVibe = subscribeToCampusVibe((vibeCfg) => {
+      if (vibeCfg && Array.isArray(vibeCfg.options)) {
+        setCampusVibeConfig(vibeCfg);
+        const allZero = vibeCfg.options.every((o: any) => (o.count || 0) === 0);
+        if (allZero) {
+          try {
+            localStorage.removeItem('nexusit_today_vibe');
+          } catch {}
+          window.dispatchEvent(new CustomEvent('campus-vibe-reset'));
+        }
+      }
+    });
+
+    const unsubFooter = subscribeToDeveloperFooter((footerCfg) => {
+      if (footerCfg && footerCfg.devName) {
+        setDeveloperFooterConfig((prev) => ({ ...prev, ...footerCfg }));
+      }
+    });
+
+    const unsubCreds = subscribeToAdminCredentials((creds) => {
+      if (creds && creds.username && creds.password) {
+        setAdminCredentialsState(creds);
+      }
+    });
+
+    // 2. Initial State Fetch from backend
     const fetchDatabase = async () => {
       try {
         const getRes = await fetch('/api/database');
@@ -969,6 +1060,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 2500);
 
     return () => {
+      unsubStudents();
+      unsubNotes();
+      unsubResources();
+      unsubNotices();
+      unsubChat();
+      unsubVibe();
+      unsubFooter();
+      unsubCreds();
       if (eventSource) eventSource.close();
       clearInterval(pollInterval);
     };
@@ -1021,7 +1120,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Notice: Do NOT set as currentUser. Profile must be approved by admin before login.
 
-    // Broadcast to server so Admin Panel receives it in real-time
+    // 1. Google Firestore: Real-time broadcast to all admin panels across devices instantly
+    saveStudentDoc(newStudent).catch((err) => console.error('Error saving student to Firestore:', err));
+
+    // 2. Broadcast to server database
     fetch('/api/students', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1090,6 +1192,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('nexusit_portal_students_live', JSON.stringify([newDevProfile, ...students.filter((s) => s.id !== devId)]));
     } catch {}
 
+    // Save to Firestore so every device sees Developer/Admin profile in Directory and Leaderboard
+    await saveStudentDoc(newDevProfile).catch((err) => console.error('Error saving developer to Firestore:', err));
+
     try {
       await fetch('/api/students', {
         method: 'POST',
@@ -1128,6 +1233,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
 
+    updateStudentDoc(studentId, { status: 'APPROVED', role: assignedRole, isAdmin }).catch((err) =>
+      console.error('Error approving student in Firestore:', err)
+    );
+
     fetch(`/api/students/${studentId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -1138,6 +1247,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const dismissStudent = (studentId: string) => {
     setStudents((prev) =>
       prev.map((s) => (s.id === studentId ? { ...s, status: 'DISMISSED' } : s))
+    );
+
+    updateStudentDoc(studentId, { status: 'DISMISSED' }).catch((err) =>
+      console.error('Error dismissing student in Firestore:', err)
     );
 
     fetch(`/api/students/${studentId}`, {
@@ -1156,6 +1269,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (viewingStudent?.id === studentId) {
       setViewingStudent(null);
     }
+
+    deleteStudentDoc(studentId).catch((err) =>
+      console.error('Error deleting student in Firestore:', err)
+    );
 
     fetch(`/api/students/${studentId}`, {
       method: 'DELETE',
@@ -1177,6 +1294,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         return s;
       })
+    );
+
+    updateStudentDoc(studentId, updates).catch((err) =>
+      console.error('Error updating student in Firestore:', err)
     );
 
     fetch(`/api/students/${studentId}`, {
@@ -1224,6 +1345,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newCreds = { username: cleanU, password: cleanP };
     setAdminCredentialsState(newCreds);
     localStorage.setItem('itadda_admin_credentials', JSON.stringify(newCreds));
+    saveAdminCredentialsDoc(newCreds).catch((err) => console.error('Error saving credentials to Firestore:', err));
 
     try {
       await fetch('/api/admin/credentials', {
@@ -1517,6 +1639,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setNoteRequests((prev) => [newReq, ...prev]);
 
+    saveNoteRequestDoc(newReq).catch((err) => console.error('Error saving note request to Firestore:', err));
+
     fetch('/api/notes/requests', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1538,11 +1662,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNoteRequests((prev) =>
       prev.map((req) => {
         if (req.id === requestId) {
-          return {
+          const updatedReq = {
             ...req,
             fulfilled: true,
             fulfillments: [fullFulfillment, ...(req.fulfillments || [])],
           };
+          updateNoteRequestDoc(requestId, updatedReq).catch((err) =>
+            console.error('Error updating note request in Firestore:', err)
+          );
+          return updatedReq;
         }
         return req;
       })
@@ -1557,6 +1685,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteNoteRequest = (requestId: string) => {
     setNoteRequests((prev) => prev.filter((r) => r.id !== requestId));
+
+    deleteNoteRequestDoc(requestId).catch((err) =>
+      console.error('Error deleting note request in Firestore:', err)
+    );
 
     fetch(`/api/notes/requests/${requestId}`, {
       method: 'DELETE',
@@ -1660,6 +1792,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setResources((prev) => [newRes, ...prev]);
 
+    saveResourceDoc(newRes).catch((err) => console.error('Error saving resource to Firestore:', err));
+
     fetch('/api/resources', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1669,6 +1803,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteResource = (resourceId: string) => {
     setResources((prev) => prev.filter((r) => r.id !== resourceId));
+
+    deleteResourceDoc(resourceId).catch((err) => console.error('Error deleting resource from Firestore:', err));
 
     fetch(`/api/resources/${resourceId}`, {
       method: 'DELETE',
@@ -1714,6 +1850,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setNotices((prev) => [newNotice, ...prev]);
 
+    saveNoticeDoc(newNotice).catch((err) => console.error('Error saving notice to Firestore:', err));
+
     fetch('/api/notices', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1724,6 +1862,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const approveNotice = (noticeId: string) => {
     setNotices((prev) =>
       prev.map((n) => (n.id === noticeId ? { ...n, status: 'APPROVED' } : n))
+    );
+
+    updateNoticeDoc(noticeId, { status: 'APPROVED' }).catch((err) =>
+      console.error('Error approving notice in Firestore:', err)
     );
 
     fetch(`/api/notices/${noticeId}`, {
@@ -1738,6 +1880,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((n) => (n.id === noticeId ? { ...n, status: 'DISMISSED' } : n))
     );
 
+    updateNoticeDoc(noticeId, { status: 'DISMISSED' }).catch((err) =>
+      console.error('Error dismissing notice in Firestore:', err)
+    );
+
     fetch(`/api/notices/${noticeId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -1747,6 +1893,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteNotice = (noticeId: string) => {
     setNotices((prev) => prev.filter((n) => n.id !== noticeId));
+
+    deleteNoticeDoc(noticeId).catch((err) => console.error('Error deleting notice from Firestore:', err));
 
     fetch(`/api/notices/${noticeId}`, {
       method: 'DELETE',
@@ -1779,6 +1927,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setChatMessages((prev) => [...prev, newMsg]);
 
+    saveChatMessageDoc(newMsg).catch((err) => console.error('Error saving chat message to Firestore:', err));
+
     fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1792,6 +1942,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (msg.id === messageId) {
           const reactions = { ...(msg.reactions || {}) };
           reactions[emoji] = (reactions[emoji] || 0) + 1;
+          updateChatMessageDoc(messageId, { reactions }).catch((err) =>
+            console.error('Error updating reaction in Firestore:', err)
+          );
           return { ...msg, reactions };
         }
         return msg;
@@ -1838,6 +1991,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           localStorage.removeItem('nexusit_students_permanent_backup');
         } catch {}
 
+        // Instant Real-time Firestore sync to all connected devices worldwide
+        await resetAllStudentLikesInFirestore().catch((err) =>
+          console.error('Error resetting likes in Firestore:', err)
+        );
+
         try {
           const res = await fetch('/api/admin/reset', {
             method: 'POST',
@@ -1868,6 +2026,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             options: (base.options || []).map((opt) => ({ ...opt, count: 0 })),
           };
         });
+
+        // Instant Real-time Firestore reset broadcast to all users
+        await resetCampusVibeVotesInFirestore().catch((err) =>
+          console.error('Error resetting vibe poll in Firestore:', err)
+        );
 
         try {
           const res = await fetch('/api/admin/reset', {
@@ -1924,6 +2087,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           options: DEFAULT_CAMPUS_VIBE.options.map((o) => ({ ...o, count: 0 })),
         });
       }
+
+      // Real-time Firestore wipe across all devices
+      await wipeAllDataInFirestore().catch((err) =>
+        console.error('Error wiping Firestore data:', err)
+      );
 
       const res = await fetch('/api/admin/reset', {
         method: 'POST',
