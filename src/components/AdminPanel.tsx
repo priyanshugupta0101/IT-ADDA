@@ -2981,10 +2981,10 @@ export const AdminPanel: React.FC = () => {
                     title: "Today's Campus Vibe",
                     subtitle: 'Tap what describes your study mood today',
                     options: [
-                      { id: 'opt_grind', label: 'Midsem / Exam Grind', icon: '📚', count: 28 },
-                      { id: 'opt_hack', label: 'Coding & Projects', icon: '💻', count: 19 },
-                      { id: 'opt_canteen', label: 'Canteen & Chill', icon: '☕', count: 14 },
-                      { id: 'opt_lab', label: 'Lab Submissions', icon: '⚡', count: 23 },
+                      { id: 'opt_grind', label: 'Midsem / Exam Grind', icon: '📚', count: 0 },
+                      { id: 'opt_hack', label: 'Coding & Projects', icon: '💻', count: 0 },
+                      { id: 'opt_canteen', label: 'Canteen & Chill', icon: '☕', count: 0 },
+                      { id: 'opt_lab', label: 'Lab Submissions', icon: '⚡', count: 0 },
                     ],
                   })
                 }
@@ -3001,10 +3001,10 @@ export const AdminPanel: React.FC = () => {
                     title: 'Exam Season Vibe Check',
                     subtitle: 'How is the semester exam prep going?',
                     options: [
-                      { id: 'opt_cram', label: 'Last-minute PYQ Cramming', icon: '📖', count: 42 },
-                      { id: 'opt_fried', label: 'Brain Fried from BEE & Math', icon: '🧠', count: 35 },
-                      { id: 'opt_coffee', label: 'Running on 3am Chai / Coffee', icon: '☕', count: 29 },
-                      { id: 'opt_pray', label: 'Praying for Passing Marks', icon: '🙏', count: 38 },
+                      { id: 'opt_cram', label: 'Last-minute PYQ Cramming', icon: '📖', count: 0 },
+                      { id: 'opt_fried', label: 'Brain Fried from BEE & Math', icon: '🧠', count: 0 },
+                      { id: 'opt_coffee', label: 'Running on 3am Chai / Coffee', icon: '☕', count: 0 },
+                      { id: 'opt_pray', label: 'Praying for Passing Marks', icon: '🙏', count: 0 },
                     ],
                   })
                 }
@@ -3021,10 +3021,10 @@ export const AdminPanel: React.FC = () => {
                     title: 'College Fest & Events Pulse',
                     subtitle: 'What are you participating in today?',
                     options: [
-                      { id: 'opt_dance', label: 'Dance & Cultural Stage', icon: '💃', count: 31 },
-                      { id: 'opt_music', label: 'Band / Concert Jamming', icon: '🎸', count: 25 },
-                      { id: 'opt_food', label: 'Food Stalls & Chilling', icon: '🍕', count: 40 },
-                      { id: 'opt_org', label: 'Event Organizing Duty', icon: '📋', count: 18 },
+                      { id: 'opt_dance', label: 'Dance & Cultural Stage', icon: '💃', count: 0 },
+                      { id: 'opt_music', label: 'Band / Concert Jamming', icon: '🎸', count: 0 },
+                      { id: 'opt_food', label: 'Food Stalls & Chilling', icon: '🍕', count: 0 },
+                      { id: 'opt_org', label: 'Event Organizing Duty', icon: '📋', count: 0 },
                     ],
                   })
                 }
@@ -3041,10 +3041,10 @@ export const AdminPanel: React.FC = () => {
                     title: 'Hackathon & Dev Weekend',
                     subtitle: 'What is your build status right now?',
                     options: [
-                      { id: 'opt_debug', label: 'Debugging Code at 3 AM', icon: '🐛', count: 27 },
-                      { id: 'opt_ship', label: 'Shipping Feature MVP', icon: '🚀', count: 22 },
-                      { id: 'opt_design', label: 'UI / UX Figma Polishing', icon: '🎨', count: 16 },
-                      { id: 'opt_pitch', label: 'Preparing Pitch Slides', icon: '💡', count: 19 },
+                      { id: 'opt_debug', label: 'Debugging Code at 3 AM', icon: '🐛', count: 0 },
+                      { id: 'opt_ship', label: 'Shipping Feature MVP', icon: '🚀', count: 0 },
+                      { id: 'opt_design', label: 'UI / UX Figma Polishing', icon: '🎨', count: 0 },
+                      { id: 'opt_pitch', label: 'Preparing Pitch Slides', icon: '💡', count: 0 },
                     ],
                   })
                 }

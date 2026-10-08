@@ -181,33 +181,40 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Students (persisted in localStorage + real-time server database)
-  const [students, setStudents] = useState<StudentProfile[]>(() => {
-    try {
-      if (localStorage.getItem('nexusit_db_wiped') === 'true') {
-        return [];
-      }
-      const saved = localStorage.getItem('nexusit_portal_students_live');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed;
-        }
-      }
-      return [];
-    } catch {
-      return [];
+// One-time client device purge: Clears legacy mock data so all devices rely exclusively on live Firestore
+if (typeof window !== 'undefined') {
+  try {
+    const PURGE_KEY = 'nexusit_v5_pure_cloud_zeroed';
+    if (localStorage.getItem(PURGE_KEY) !== 'true') {
+      const legacyMockKeys = [
+        'nexusit_portal_students_live',
+        'nexusit_students_permanent_backup',
+        'nexusit_students',
+        'nexusit_portal_students',
+        'nexusit_live_portal_students_v1',
+        'nexusit_campus_vibe_config',
+        'nexusit_today_vibe',
+        'nexusit_portal_note_requests_live',
+        'nexusit_portal_resources_live',
+        'nexusit_portal_notices_live',
+        'nexusit_portal_chat_live',
+      ];
+      legacyMockKeys.forEach((k) => localStorage.removeItem(k));
+      localStorage.setItem(PURGE_KEY, 'true');
     }
-  });
+  } catch (e) {}
+}
+
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Students: Always initialized empty, populated exclusively by real-time Firestore cloud database
+  const [students, setStudents] = useState<StudentProfile[]>([]);
 
   // Current logged in user
   const [currentUser, setCurrentUser] = useState<StudentProfile | null>(() => {
     try {
       const savedId = localStorage.getItem('nexusit_portal_user_id_live');
       if (!savedId || savedId === 'GUEST') return null;
-      const found = students.find((s) => s.id === savedId);
-      return found || null;
+      return null; // Will be set when Firestore returns matching student profile
     } catch {
       return null;
     }
@@ -411,19 +418,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ],
   };
 
-  const [campusVibeConfig, setCampusVibeConfig] = useState<CampusVibeConfig>(() => {
-    try {
-      const saved = localStorage.getItem('nexusit_campus_vibe_config');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return DEFAULT_CAMPUS_VIBE;
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('nexusit_campus_vibe_config', JSON.stringify(campusVibeConfig));
-    } catch {}
-  }, [campusVibeConfig]);
+  // Campus Vibe: Always starts clean at 0 counts, updated live from Firestore cloud database
+  const [campusVibeConfig, setCampusVibeConfig] = useState<CampusVibeConfig>(DEFAULT_CAMPUS_VIBE);
 
   const updateCampusVibeConfig = async (newConfig: { title?: string; subtitle?: string; options?: CampusVibeOption[] }) => {
     const updated = {
@@ -1082,26 +1078,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       'id' | 'status' | 'likes' | 'dislikes' | 'likedBy' | 'dislikedBy' | 'createdAt' | 'batch'
     >
   ) => {
+    const targetRoll = Number(data.rollNumber);
+    const targetEmail = data.email ? data.email.trim().toLowerCase() : '';
+
     const existing = students.find(
-      (s) => s.rollNumber === data.rollNumber || s.email.toLowerCase() === data.email.toLowerCase()
+      (s) =>
+        Number(s.rollNumber) === targetRoll ||
+        (targetEmail !== '' && s.email && s.email.trim().toLowerCase() === targetEmail)
     );
+
     if (existing && existing.status === 'APPROVED') {
       return {
         success: false,
-        message: `An approved student already exists with Roll Number ${data.rollNumber} or email ${data.email}.`,
+        message: `Roll Number ${data.rollNumber} is already registered. If this is your account, please switch to the Sign In tab.`,
       };
     }
     if (existing && existing.status === 'PENDING_APPROVAL') {
       return {
         success: false,
-        message: `A registration request for Roll Number ${data.rollNumber} is already submitted and pending admin verification.`,
+        message: `A registration request for Roll Number ${data.rollNumber} is already submitted and awaiting Admin approval.`,
       };
     }
 
     const newStudent: StudentProfile = {
       ...data,
+      rollNumber: targetRoll,
       id: existing ? existing.id : `std_${Date.now()}`,
-      batch: getBatchFromRoll(data.rollNumber),
+      batch: getBatchFromRoll(targetRoll),
       status: 'PENDING_APPROVAL',
       role: 'STUDENT',
       isAdmin: false,
