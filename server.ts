@@ -177,10 +177,13 @@ app.post('/api/database/sync', (req, res) => {
     for (const cStudent of clientData.students) {
       if (!cStudent || !cStudent.id) continue;
       const sIdx = dbState.students.findIndex(
-        (s) => s.id === cStudent.id || s.rollNumber === cStudent.rollNumber
+        (s) => s.id === cStudent.id || (cStudent.rollNumber && s.rollNumber === cStudent.rollNumber)
       );
       if (sIdx === -1) {
         dbState.students.push(cStudent);
+        hasChanges = true;
+      } else {
+        dbState.students[sIdx] = { ...dbState.students[sIdx], ...cStudent };
         hasChanges = true;
       }
     }

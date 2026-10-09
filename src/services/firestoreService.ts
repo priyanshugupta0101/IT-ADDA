@@ -165,14 +165,33 @@ export function subscribeToCampusVibe(callback: (config: CampusVibeConfig) => vo
 // Real-time Database Operations (Syncs to all devices instantly)
 // -----------------------------------------------------------------------------
 
+export function cleanFirestorePayload<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) {
+    return obj.map((item) => cleanFirestorePayload(item)) as unknown as T;
+  }
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const [key, val] of Object.entries(obj as Record<string, any>)) {
+      if (val !== undefined) {
+        cleaned[key] = cleanFirestorePayload(val);
+      }
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
 export async function saveStudentDoc(student: StudentProfile): Promise<void> {
   const docRef = doc(db, 'students', student.id);
-  await setDoc(docRef, student, { merge: true });
+  const cleaned = cleanFirestorePayload(student);
+  await setDoc(docRef, cleaned, { merge: true });
 }
 
 export async function updateStudentDoc(id: string, updates: Partial<StudentProfile>): Promise<void> {
   const docRef = doc(db, 'students', id);
-  await updateDoc(docRef, updates);
+  const cleaned = cleanFirestorePayload(updates);
+  await updateDoc(docRef, cleaned);
 }
 
 export async function deleteStudentDoc(id: string): Promise<void> {
@@ -180,14 +199,22 @@ export async function deleteStudentDoc(id: string): Promise<void> {
   await deleteDoc(docRef);
 }
 
+export async function getStudentsFromFirestore(): Promise<StudentProfile[]> {
+  const snap = await getDocs(collection(db, 'students'));
+  const list: StudentProfile[] = [];
+  snap.forEach((d) => list.push(d.data() as StudentProfile));
+  list.sort((a, b) => (a.rollNumber || 0) - (b.rollNumber || 0));
+  return list;
+}
+
 export async function saveNoteRequestDoc(request: NoteRequest): Promise<void> {
   const docRef = doc(db, 'noteRequests', request.id);
-  await setDoc(docRef, request, { merge: true });
+  await setDoc(docRef, cleanFirestorePayload(request), { merge: true });
 }
 
 export async function updateNoteRequestDoc(id: string, updates: Partial<NoteRequest>): Promise<void> {
   const docRef = doc(db, 'noteRequests', id);
-  await updateDoc(docRef, updates);
+  await updateDoc(docRef, cleanFirestorePayload(updates));
 }
 
 export async function deleteNoteRequestDoc(id: string): Promise<void> {
@@ -197,7 +224,7 @@ export async function deleteNoteRequestDoc(id: string): Promise<void> {
 
 export async function saveResourceDoc(resource: ResourceItem): Promise<void> {
   const docRef = doc(db, 'resources', resource.id);
-  await setDoc(docRef, resource, { merge: true });
+  await setDoc(docRef, cleanFirestorePayload(resource), { merge: true });
 }
 
 export async function deleteResourceDoc(id: string): Promise<void> {
@@ -207,12 +234,12 @@ export async function deleteResourceDoc(id: string): Promise<void> {
 
 export async function saveNoticeDoc(notice: NoticeItem): Promise<void> {
   const docRef = doc(db, 'notices', notice.id);
-  await setDoc(docRef, notice, { merge: true });
+  await setDoc(docRef, cleanFirestorePayload(notice), { merge: true });
 }
 
 export async function updateNoticeDoc(id: string, updates: Partial<NoticeItem>): Promise<void> {
   const docRef = doc(db, 'notices', id);
-  await updateDoc(docRef, updates);
+  await updateDoc(docRef, cleanFirestorePayload(updates));
 }
 
 export async function deleteNoticeDoc(id: string): Promise<void> {
@@ -222,17 +249,17 @@ export async function deleteNoticeDoc(id: string): Promise<void> {
 
 export async function saveChatMessageDoc(message: ChatMessage): Promise<void> {
   const docRef = doc(db, 'chatMessages', message.id);
-  await setDoc(docRef, message);
+  await setDoc(docRef, cleanFirestorePayload(message));
 }
 
 export async function updateChatMessageDoc(id: string, updates: Partial<ChatMessage>): Promise<void> {
   const docRef = doc(db, 'chatMessages', id);
-  await updateDoc(docRef, updates);
+  await updateDoc(docRef, cleanFirestorePayload(updates));
 }
 
 export async function saveCampusVibeConfig(config: CampusVibeConfig): Promise<void> {
   const docRef = doc(db, 'config', 'campusVibe');
-  await setDoc(docRef, config);
+  await setDoc(docRef, cleanFirestorePayload(config));
 }
 
 export function subscribeToDeveloperFooter(callback: (config: any) => void) {
@@ -252,7 +279,7 @@ export function subscribeToDeveloperFooter(callback: (config: any) => void) {
 
 export async function saveDeveloperFooterDoc(config: any): Promise<void> {
   const docRef = doc(db, 'config', 'developerFooter');
-  await setDoc(docRef, config, { merge: true });
+  await setDoc(docRef, cleanFirestorePayload(config), { merge: true });
 }
 
 export function subscribeToAdminCredentials(callback: (creds: { username: string; password: string }) => void) {
@@ -272,7 +299,7 @@ export function subscribeToAdminCredentials(callback: (creds: { username: string
 
 export async function saveAdminCredentialsDoc(creds: { username: string; password: string }): Promise<void> {
   const docRef = doc(db, 'config', 'adminCredentials');
-  await setDoc(docRef, creds, { merge: true });
+  await setDoc(docRef, cleanFirestorePayload(creds), { merge: true });
 }
 
 // Reset operations that broadcast to all devices instantly

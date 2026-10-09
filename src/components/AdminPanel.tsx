@@ -99,6 +99,7 @@ export const AdminPanel: React.FC = () => {
     dismissStudent,
     deleteStudent,
     updateStudentProfile,
+    refreshDatabase,
     approveNotice,
     dismissNotice,
     deleteNotice,
@@ -154,6 +155,7 @@ export const AdminPanel: React.FC = () => {
   const [toastMessage, setToastMessage] = useState('');
   const [isResetting, setIsResetting] = useState<string | null>(null);
   const [confirmWipeActive, setConfirmWipeActive] = useState(false);
+  const [isRefreshingQueue, setIsRefreshingQueue] = useState(false);
 
   // Footer / Developer Credits Editor State
   const [footerDevName, setFooterDevName] = useState(developerFooterConfig?.devName || 'Priyanshu Gupta');
@@ -510,6 +512,20 @@ export const AdminPanel: React.FC = () => {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(''), 3000);
+  };
+
+  const handleManualSync = async () => {
+    setIsRefreshingQueue(true);
+    soundEngine.playVibeVoteSound();
+    try {
+      await refreshDatabase();
+      const currentPending = students.filter((s) => s.status === 'PENDING_APPROVAL').length;
+      showToast(`Cloud sync complete! ${currentPending} pending application(s) detected.`);
+    } catch {
+      showToast('Database refreshed.');
+    } finally {
+      setTimeout(() => setIsRefreshingQueue(false), 600);
+    }
   };
 
   const handleUnlockSubmit = (e: React.FormEvent) => {
@@ -1233,12 +1249,31 @@ export const AdminPanel: React.FC = () => {
                     >
                       Review Queue
                     </button>
+                    <button
+                      onClick={handleManualSync}
+                      disabled={isRefreshingQueue}
+                      className="px-2.5 py-1.5 bg-[#241548] hover:bg-[#3a2170] text-[#f9c74f] border border-[#4b2f7e] text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                      title="Fetch live updates from cloud database"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingQueue ? 'animate-spin' : ''}`} />
+                      <span>{isRefreshingQueue ? 'Syncing...' : 'Sync Live'}</span>
+                    </button>
                   </div>
                 </div>
               ) : (
-                <div className="p-4 bg-[#2d6a4f]/25 border-2 border-[#52b788] text-[#52b788] text-xs font-bold flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[#52b788] shrink-0" />
-                  <span>All student account registrations are verified and up to date!</span>
+                <div className="space-y-3">
+                  <div className="p-4 bg-[#2d6a4f]/25 border-2 border-[#52b788] text-[#52b788] text-xs font-bold flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[#52b788] shrink-0" />
+                    <span>All student account registrations are verified and up to date!</span>
+                  </div>
+                  <button
+                    onClick={handleManualSync}
+                    disabled={isRefreshingQueue}
+                    className="px-3 py-1.5 bg-[#241548] hover:bg-[#3a2170] text-[#f9c74f] border border-[#4b2f7e] text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingQueue ? 'animate-spin' : ''}`} />
+                    <span>{isRefreshingQueue ? 'Checking Cloud...' : 'Check Cloud for New Applications'}</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -2702,14 +2737,25 @@ export const AdminPanel: React.FC = () => {
               <h3 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider">Student Profile Approval Queue</h3>
               <p className="text-xs text-[#a08fd4]">Verify registered student information before granting full portal access</p>
             </div>
-            {pendingStudents.length > 0 && (
+            <div className="flex items-center gap-2">
               <button
-                onClick={handleApproveAllPending}
-                className="pixel-btn text-xs py-1 px-3"
+                onClick={handleManualSync}
+                disabled={isRefreshingQueue}
+                className="px-2.5 py-1.5 bg-[#241548] hover:bg-[#3a2170] text-[#f9c74f] border border-[#4b2f7e] text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                title="Fetch live updates from cloud database"
               >
-                Approve All ({pendingStudents.length})
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingQueue ? 'animate-spin' : ''}`} />
+                <span>{isRefreshingQueue ? 'Syncing...' : 'Sync Queue'}</span>
               </button>
-            )}
+              {pendingStudents.length > 0 && (
+                <button
+                  onClick={handleApproveAllPending}
+                  className="pixel-btn text-xs py-1 px-3"
+                >
+                  Approve All ({pendingStudents.length})
+                </button>
+              )}
+            </div>
           </div>
 
           {pendingStudents.length > 0 ? (
@@ -2790,8 +2836,21 @@ export const AdminPanel: React.FC = () => {
               ))}
             </div>
           ) : (
-            <div className="p-10 text-center text-[#a08fd4] text-xs">
-              All student registrations have been reviewed. No pending accounts in queue.
+            <div className="py-12 px-4 text-center space-y-3">
+              <div className="w-10 h-10 mx-auto bg-[#241548] border-2 border-[#4b2f7e] flex items-center justify-center text-[#52b788] shadow-[2px_2px_0_#060410]">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <p className="text-xs text-[#a08fd4]">
+                All student registrations have been reviewed. No pending accounts currently in queue.
+              </p>
+              <button
+                onClick={handleManualSync}
+                disabled={isRefreshingQueue}
+                className="px-3 py-1.5 bg-[#241548] hover:bg-[#3a2170] text-[#f9c74f] border border-[#4b2f7e] text-xs font-mono font-bold transition-all cursor-pointer inline-flex items-center gap-2"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingQueue ? 'animate-spin' : ''}`} />
+                <span>{isRefreshingQueue ? 'Checking Cloud...' : 'Check Cloud for New Applications'}</span>
+              </button>
             </div>
           )}
         </div>

@@ -44,6 +44,7 @@ import {
   saveCampusVibeConfig,
   saveDeveloperFooterDoc,
   saveAdminCredentialsDoc,
+  getStudentsFromFirestore,
   resetAllStudentLikesInFirestore,
   resetCampusVibeVotesInFirestore,
   wipeAllDataInFirestore,
@@ -97,12 +98,13 @@ interface AppContextType {
   clearTabBadge: (tab: 'NOTICES' | 'CHAT' | 'RESOURCES' | 'NOTES') => void;
   
   // Registration & Approval & Management
-  registerStudent: (data: Omit<StudentProfile, 'id' | 'status' | 'likes' | 'dislikes' | 'likedBy' | 'dislikedBy' | 'createdAt' | 'batch'>) => { success: boolean; message: string };
+  registerStudent: (data: Omit<StudentProfile, 'id' | 'status' | 'likes' | 'dislikes' | 'likedBy' | 'dislikedBy' | 'createdAt' | 'batch'>) => Promise<{ success: boolean; message: string; student?: StudentProfile }>;
   registerDeveloperProfile: (data: Omit<StudentProfile, 'id' | 'status' | 'likes' | 'dislikes' | 'likedBy' | 'dislikedBy' | 'createdAt' | 'batch' | 'role' | 'isAdmin' | 'isDeveloper'>) => Promise<{ success: boolean; message: string; student?: StudentProfile }>;
   approveStudent: (studentId: string, assignedRole: StudentRole) => void;
   dismissStudent: (studentId: string) => void;
   deleteStudent: (studentId: string) => void;
   updateStudentProfile: (studentId: string, updates: Partial<StudentProfile>) => void;
+  refreshDatabase: () => Promise<void>;
   
   // Likes / Dislikes & Cheat
   likeStudent: (studentId: string) => { success: boolean; message?: string };
@@ -612,6 +614,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setCurrentUser(matched);
         }
       }
+
+      // Also keep local server cache synchronized with latest Firestore state
+      try {
+        fetch('/api/database/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ students: liveStudents }),
+        }).catch(() => {});
+      } catch {}
     });
 
     const unsubNotes = subscribeToNoteRequests((requests) => {
@@ -662,8 +673,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!getRes.ok) return;
         const data = await getRes.json();
 
-        if (data && Array.isArray(data.students)) {
-          setStudents(data.students);
+        if (data && Array.isArray(data.students) && data.students.length > 0) {
+          setStudents((prev) => {
+            if (prev.length > 0) return prev; // Keep Firestore live state if already active
+            return data.students;
+          });
 
           // If user is currently logged in, sync their profile
           const savedId = localStorage.getItem('nexusit_portal_user_id_live');
@@ -676,8 +690,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               localStorage.setItem('nexusit_portal_user_id_live', 'GUEST');
             }
           }
-        } else {
-          setStudents([]);
         }
 
         if (data && Array.isArray(data.noteRequests)) setNoteRequests(data.noteRequests);
@@ -1029,8 +1041,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
           if (!data) return;
-          if (Array.isArray(data.students)) {
-            setStudents(data.students);
+          if (Array.isArray(data.students) && data.students.length > 0) {
+            setStudents((prev) => {
+              if (prev.length === 0) return data.students;
+              // Merge without wiping Firestore students; Firestore takes priority
+              const map = new Map<string, StudentProfile>();
+              data.students.forEach((s: StudentProfile) => {
+                if (s && s.id) map.set(s.id, s);
+              });
+              prev.forEach((s) => map.set(s.id, s));
+              return Array.from(map.values()).sort((a, b) => (a.rollNumber || 0) - (b.rollNumber || 0));
+            });
             if (currentUserRef.current) {
               const updatedSelf = data.students.find((s: StudentProfile) => s.id === currentUserRef.current?.id);
               if (updatedSelf) setCurrentUser(updatedSelf);
@@ -1072,71 +1093,141 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // --------------------------------------------------------------------------
   // Actions with Optimistic UI + Server-Side Real-Time Broadcasting
   // --------------------------------------------------------------------------
-  const registerStudent = (
+  const registerStudent = async (
     data: Omit<
       StudentProfile,
       'id' | 'status' | 'likes' | 'dislikes' | 'likedBy' | 'dislikedBy' | 'createdAt' | 'batch'
     >
-  ) => {
+  ): Promise<{ success: boolean; message: string; student?: StudentProfile }> => {
     const targetRoll = Number(data.rollNumber);
     const targetEmail = data.email ? data.email.trim().toLowerCase() : '';
+    const targetPhone = data.phoneNumber ? data.phoneNumber.trim() : '';
 
-    const existing = students.find(
-      (s) =>
-        Number(s.rollNumber) === targetRoll ||
-        (targetEmail !== '' && s.email && s.email.trim().toLowerCase() === targetEmail)
-    );
-
-    if (existing && existing.status === 'APPROVED') {
+    // 1. Roll Number Check: Only check matching roll number
+    const existingByRoll = students.find((s) => Number(s.rollNumber) === targetRoll);
+    if (existingByRoll && existingByRoll.status === 'APPROVED') {
       return {
         success: false,
-        message: `Roll Number ${data.rollNumber} is already registered. If this is your account, please switch to the Sign In tab.`,
+        message: `Roll Number ${targetRoll} is already registered by ${existingByRoll.name}. If this is your account, please switch to the Sign In tab.`,
       };
     }
-    if (existing && existing.status === 'PENDING_APPROVAL') {
+    if (existingByRoll && existingByRoll.status === 'PENDING_APPROVAL') {
       return {
         success: false,
-        message: `A registration request for Roll Number ${data.rollNumber} is already submitted and awaiting Admin approval.`,
+        message: `An application for Roll Number ${targetRoll} (${existingByRoll.name}) is already submitted and awaiting Admin approval.`,
       };
     }
+
+    // 2. Email Check: Only check if email matches a DIFFERENT roll number
+    if (targetEmail) {
+      const existingByEmail = students.find(
+        (s) => s.email && s.email.trim().toLowerCase() === targetEmail && Number(s.rollNumber) !== targetRoll
+      );
+      if (existingByEmail && existingByEmail.status === 'APPROVED') {
+        return {
+          success: false,
+          message: `The email address "${data.email}" is already registered (Roll #${existingByEmail.rollNumber}). Please sign in with that account, or use your own email.`,
+        };
+      }
+      if (existingByEmail && existingByEmail.status === 'PENDING_APPROVAL') {
+        return {
+          success: false,
+          message: `The email address "${data.email}" is already used in a pending application for Roll #${existingByEmail.rollNumber}.`,
+        };
+      }
+    }
+
+    // 3. Phone Check: Only check if phone matches a DIFFERENT roll number
+    if (targetPhone) {
+      const existingByPhone = students.find(
+        (s) => s.phoneNumber && s.phoneNumber.trim() === targetPhone && Number(s.rollNumber) !== targetRoll
+      );
+      if (existingByPhone && existingByPhone.status === 'APPROVED') {
+        return {
+          success: false,
+          message: `The phone number "${data.phoneNumber}" is already registered (Roll #${existingByPhone.rollNumber}). Please sign in using your phone and password.`,
+        };
+      }
+      if (existingByPhone && existingByPhone.status === 'PENDING_APPROVAL') {
+        return {
+          success: false,
+          message: `The phone number "${data.phoneNumber}" is already used in a pending application for Roll #${existingByPhone.rollNumber}.`,
+        };
+      }
+    }
+
+    const studentId = existingByRoll ? existingByRoll.id : `std_${targetRoll}_${Date.now()}`;
 
     const newStudent: StudentProfile = {
       ...data,
       rollNumber: targetRoll,
-      id: existing ? existing.id : `std_${Date.now()}`,
+      id: studentId,
       batch: getBatchFromRoll(targetRoll),
       status: 'PENDING_APPROVAL',
       role: 'STUDENT',
       isAdmin: false,
-      likes: 0,
-      dislikes: 0,
-      likedBy: [],
-      dislikedBy: [],
-      createdAt: new Date().toISOString(),
+      likes: existingByRoll ? existingByRoll.likes : 0,
+      dislikes: existingByRoll ? existingByRoll.dislikes : 0,
+      likedBy: existingByRoll ? existingByRoll.likedBy : [],
+      dislikedBy: existingByRoll ? existingByRoll.dislikedBy : [],
+      createdAt: existingByRoll ? existingByRoll.createdAt : new Date().toISOString(),
     };
 
-    if (existing) {
-      setStudents((prev) => prev.map((s) => (s.id === existing.id ? newStudent : s)));
-    } else {
-      setStudents((prev) => [newStudent, ...prev]);
-    }
-
-    // Notice: Do NOT set as currentUser. Profile must be approved by admin before login.
+    // Optimistically update local state immediately
+    setStudents((prev) => {
+      const filtered = prev.filter((s) => s.id !== studentId && Number(s.rollNumber) !== targetRoll);
+      return [newStudent, ...filtered];
+    });
 
     // 1. Google Firestore: Real-time broadcast to all admin panels across devices instantly
-    saveStudentDoc(newStudent).catch((err) => console.error('Error saving student to Firestore:', err));
+    try {
+      await saveStudentDoc(newStudent);
+      console.log('Student successfully saved to Firestore:', newStudent.name, newStudent.rollNumber);
+    } catch (err) {
+      console.error('Error saving student to Firestore:', err);
+    }
 
     // 2. Broadcast to server database
-    fetch('/api/students', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newStudent),
-    }).catch((err) => console.error('Error posting student to server:', err));
+    try {
+      await fetch('/api/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newStudent),
+      });
+    } catch (err) {
+      console.error('Error posting student to server:', err);
+    }
 
     return {
       success: true,
       message: 'Registration submitted! Your profile has been sent to the Admin for approval.',
+      student: newStudent,
     };
+  };
+
+  const refreshDatabase = async () => {
+    try {
+      const liveList = await getStudentsFromFirestore();
+      if (liveList.length > 0) {
+        setStudents(liveList);
+      }
+      try {
+        const res = await fetch('/api/database');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.students) && data.students.length > 0) {
+            setStudents((prev) => {
+              const map = new Map<string, StudentProfile>();
+              data.students.forEach((s: StudentProfile) => map.set(s.id, s));
+              prev.forEach((s: StudentProfile) => map.set(s.id, s));
+              return Array.from(map.values()).sort((a, b) => (a.rollNumber || 0) - (b.rollNumber || 0));
+            });
+          }
+        }
+      } catch {}
+    } catch (e) {
+      console.error('Error refreshing from Firestore:', e);
+    }
   };
 
   const registerDeveloperProfile = async (
@@ -2157,6 +2248,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         unreadBadges,
         clearTabBadge,
         registerStudent,
+        refreshDatabase,
         registerDeveloperProfile,
         approveStudent,
         dismissStudent,

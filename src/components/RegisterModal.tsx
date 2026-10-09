@@ -30,6 +30,7 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
 
   const [activeTab, setActiveTab] = useState<'REGISTER' | 'SIGNIN'>('REGISTER');
   const [submittedStatus, setSubmittedStatus] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form State
   const [name, setName] = useState('');
@@ -63,7 +64,7 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
     setSubmittedStatus(null);
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
 
@@ -105,30 +106,38 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
         ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=95'
         : 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&auto=format&fit=crop&q=95');
 
-    const res = registerStudent({
-      name: name.trim(),
-      rollNumber: parsedRoll,
-      division,
-      branch,
-      year: '1st Year (FE)',
-      gender,
-      phoneNumber: phoneNumber.trim(),
-      email: email.trim(),
-      password: password.trim(),
-      profileTag: profileTag.trim(),
-      description: description.trim(),
-      linkedinUrl: linkedinUrl.trim(),
-      instagramHandle: instagramHandle.trim(),
-      techInterest: techInterest.trim(),
-      photoUrl: finalPhoto,
-      role: 'STUDENT',
-      idCardTheme: gender === 'Girls' ? 'barbie' : 'spidey',
-    });
+    setIsSubmitting(true);
+    try {
+      const res = await registerStudent({
+        name: name.trim(),
+        rollNumber: parsedRoll,
+        division,
+        branch,
+        year: '1st Year (FE)',
+        gender,
+        phoneNumber: phoneNumber.trim(),
+        email: email.trim(),
+        password: password.trim(),
+        profileTag: profileTag.trim(),
+        description: description.trim(),
+        linkedinUrl: linkedinUrl.trim(),
+        instagramHandle: instagramHandle.trim(),
+        techInterest: techInterest.trim(),
+        photoUrl: finalPhoto,
+        role: 'STUDENT',
+        idCardTheme: gender === 'Girls' ? 'barbie' : 'spidey',
+      });
 
-    if (!res.success) {
-      setFormError(res.message);
-    } else {
-      setSubmittedStatus(res.message);
+      if (!res.success) {
+        setFormError(res.message);
+      } else {
+        setSubmittedStatus(res.message);
+      }
+    } catch (err: any) {
+      console.error('Registration submission error:', err);
+      setFormError(err?.message || 'Failed to submit registration. Please check your internet connection.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -484,15 +493,24 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="pixel-btn-secondary text-xs"
+                  disabled={isSubmitting}
+                  className="pixel-btn-secondary text-xs disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="pixel-btn text-xs"
+                  disabled={isSubmitting}
+                  className="pixel-btn text-xs disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  ▶ Submit Registration
+                  {isSubmitting ? (
+                    <>
+                      <span className="inline-block w-3.5 h-3.5 border-2 border-[#1a1030] border-t-transparent animate-spin rounded-full" />
+                      <span>Submitting...</span>
+                    </>
+                  ) : (
+                    <span>▶ Submit Registration</span>
+                  )}
                 </button>
               </div>
             </form>
