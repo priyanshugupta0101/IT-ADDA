@@ -211,12 +211,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Students: Always initialized empty, populated exclusively by real-time Firestore cloud database
   const [students, setStudents] = useState<StudentProfile[]>([]);
 
-  // Current logged in user
+  // Current logged in user: Persisted in localStorage so reloading or reopening Chrome maintains login
   const [currentUser, setCurrentUser] = useState<StudentProfile | null>(() => {
     try {
-      const savedId = localStorage.getItem('nexusit_portal_user_id_live');
-      if (!savedId || savedId === 'GUEST') return null;
-      return null; // Will be set when Firestore returns matching student profile
+      const savedProfile = localStorage.getItem('nexusit_portal_user_profile_live');
+      if (savedProfile) {
+        const parsed = JSON.parse(savedProfile);
+        if (parsed && parsed.id) return parsed;
+      }
+      return null;
     } catch {
       return null;
     }
@@ -554,9 +557,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem('nexusit_portal_user_id_live', currentUser.id);
-    } else {
-      localStorage.setItem('nexusit_portal_user_id_live', 'GUEST');
+      try {
+        localStorage.setItem('nexusit_portal_user_id_live', currentUser.id);
+        localStorage.setItem('nexusit_portal_user_profile_live', JSON.stringify(currentUser));
+      } catch {}
     }
   }, [currentUser]);
 
@@ -607,11 +611,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setStudents(liveStudents);
       setIsRealtimeConnected(true);
 
-      // Keep currentUser in sync if updated by admin
-      if (currentUserRef.current) {
-        const matched = liveStudents.find((s) => s.id === currentUserRef.current?.id);
+      // Keep currentUser in sync if updated by admin or likes changes
+      const activeUserId = currentUserRef.current?.id || localStorage.getItem('nexusit_portal_user_id_live');
+      if (activeUserId && activeUserId !== 'GUEST') {
+        const matched = liveStudents.find((s) => s.id === activeUserId);
         if (matched) {
-          setCurrentUser(matched);
+          if (matched.status === 'APPROVED') {
+            setCurrentUser(matched);
+            try {
+              localStorage.setItem('nexusit_portal_user_id_live', matched.id);
+              localStorage.setItem('nexusit_portal_user_profile_live', JSON.stringify(matched));
+            } catch {}
+          } else if (matched.status === 'DISMISSED') {
+            setCurrentUser(null);
+            try {
+              localStorage.removeItem('nexusit_portal_user_id_live');
+              localStorage.removeItem('nexusit_portal_user_profile_live');
+            } catch {}
+          }
         }
       }
 
@@ -679,15 +696,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return data.students;
           });
 
-          // If user is currently logged in, sync their profile
-          const savedId = localStorage.getItem('nexusit_portal_user_id_live');
-          if (savedId && savedId !== 'GUEST') {
-            const matched = data.students.find((s: StudentProfile) => s.id === savedId);
-            if (matched) {
+          // If user is currently logged in, sync their profile if present in server data
+          const activeUserId = currentUserRef.current?.id || localStorage.getItem('nexusit_portal_user_id_live');
+          if (activeUserId && activeUserId !== 'GUEST') {
+            const matched = data.students.find((s: StudentProfile) => s.id === activeUserId);
+            if (matched && matched.status === 'APPROVED') {
               setCurrentUser(matched);
-            } else {
-              setCurrentUser(null);
-              localStorage.setItem('nexusit_portal_user_id_live', 'GUEST');
+              try {
+                localStorage.setItem('nexusit_portal_user_id_live', matched.id);
+                localStorage.setItem('nexusit_portal_user_profile_live', JSON.stringify(matched));
+              } catch {}
             }
           }
         }
@@ -743,7 +761,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setStudents((prev) => prev.filter((s) => s.id !== payload.id));
           if (currentUserRef.current?.id === payload.id) {
             setCurrentUser(null);
-            localStorage.setItem('nexusit_portal_user_id_live', 'GUEST');
+            currentUserRef.current = null;
+            try {
+              localStorage.removeItem('nexusit_portal_user_id_live');
+              localStorage.removeItem('nexusit_portal_user_profile_live');
+            } catch {}
           }
         } catch (err) {
           console.error('Error handling STUDENT_DELETED SSE event:', err);
@@ -1052,9 +1074,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               prev.forEach((s) => map.set(s.id, s));
               return Array.from(map.values()).sort((a, b) => (a.rollNumber || 0) - (b.rollNumber || 0));
             });
-            if (currentUserRef.current) {
-              const updatedSelf = data.students.find((s: StudentProfile) => s.id === currentUserRef.current?.id);
-              if (updatedSelf) setCurrentUser(updatedSelf);
+            const activeUserId = currentUserRef.current?.id || localStorage.getItem('nexusit_portal_user_id_live');
+            if (activeUserId && activeUserId !== 'GUEST') {
+              const updatedSelf = data.students.find((s: StudentProfile) => s.id === activeUserId);
+              if (updatedSelf && updatedSelf.status === 'APPROVED') {
+                setCurrentUser(updatedSelf);
+                try {
+                  localStorage.setItem('nexusit_portal_user_id_live', updatedSelf.id);
+                  localStorage.setItem('nexusit_portal_user_profile_live', JSON.stringify(updatedSelf));
+                } catch {}
+              }
             }
           }
           if (Array.isArray(data.noteRequests)) setNoteRequests(data.noteRequests);
@@ -1281,8 +1310,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setStudents((prev) => [newDevProfile, ...prev.filter((s) => s.id !== devId)]);
     setCurrentUser(newDevProfile);
+    currentUserRef.current = newDevProfile;
     try {
       localStorage.setItem('nexusit_portal_user_id_live', devId);
+      localStorage.setItem('nexusit_portal_user_profile_live', JSON.stringify(newDevProfile));
       localStorage.setItem('nexusit_portal_students_live', JSON.stringify([newDevProfile, ...students.filter((s) => s.id !== devId)]));
     } catch {}
 
@@ -1358,7 +1389,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setStudents((prev) => prev.filter((s) => s.id !== studentId));
     if (currentUser?.id === studentId) {
       setCurrentUser(null);
-      localStorage.setItem('nexusit_portal_user_id_live', 'GUEST');
+      currentUserRef.current = null;
+      try {
+        localStorage.removeItem('nexusit_portal_user_id_live');
+        localStorage.removeItem('nexusit_portal_user_profile_live');
+      } catch {}
     }
     if (viewingStudent?.id === studentId) {
       setViewingStudent(null);
@@ -1380,6 +1415,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const updated = { ...s, ...updates };
           if (currentUser?.id === studentId) {
             setCurrentUser(updated);
+            currentUserRef.current = updated;
+            try {
+              localStorage.setItem('nexusit_portal_user_profile_live', JSON.stringify(updated));
+            } catch {}
           }
           if (viewingStudent?.id === studentId) {
             setViewingStudent(updated);
@@ -1460,7 +1499,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Admin Gate State
   const [isAdminUnlocked, setIsAdminUnlocked] = useState<boolean>(() => {
-    return sessionStorage.getItem('nexusit_admin_unlocked') === 'true';
+    try {
+      return (
+        sessionStorage.getItem('nexusit_admin_unlocked') === 'true' ||
+        localStorage.getItem('nexusit_admin_unlocked') === 'true'
+      );
+    } catch {
+      return false;
+    }
   });
 
   const unlockAdmin = (userId: string, accessCode: string) => {
@@ -1497,7 +1543,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (matchesCustom || (isUserValid && isCodeValid)) {
       setIsAdminUnlocked(true);
-      sessionStorage.setItem('nexusit_admin_unlocked', 'true');
+      try {
+        sessionStorage.setItem('nexusit_admin_unlocked', 'true');
+        localStorage.setItem('nexusit_admin_unlocked', 'true');
+      } catch {}
 
       // If a Developer / Admin profile already exists in the system, link it to currentUser
       const existingDevAdmin = students.find(
@@ -1508,7 +1557,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (existingDevAdmin) {
         setCurrentUser(existingDevAdmin);
-        localStorage.setItem('nexusit_portal_user_id_live', existingDevAdmin.id);
+        currentUserRef.current = existingDevAdmin;
+        try {
+          localStorage.setItem('nexusit_portal_user_id_live', existingDevAdmin.id);
+          localStorage.setItem('nexusit_portal_user_profile_live', JSON.stringify(existingDevAdmin));
+        } catch {}
       }
       // Note: We deliberately DO NOT auto-create a profile!
       // The admin can click "Load / Register Your Profile" in the Admin Panel to create their profile.
@@ -1523,7 +1576,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const lockAdmin = () => {
     setIsAdminUnlocked(false);
-    sessionStorage.removeItem('nexusit_admin_unlocked');
+    try {
+      sessionStorage.removeItem('nexusit_admin_unlocked');
+      localStorage.removeItem('nexusit_admin_unlocked');
+    } catch {}
   };
 
   const boostStudentLikes = (studentId: string, amount: number) => {
@@ -1605,13 +1661,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     setCurrentUser(student);
-    localStorage.setItem('nexusit_portal_user_id_live', student.id);
+    currentUserRef.current = student;
+    try {
+      localStorage.setItem('nexusit_portal_user_id_live', student.id);
+      localStorage.setItem('nexusit_portal_user_profile_live', JSON.stringify(student));
+    } catch {}
     return { success: true, message: `Welcome back, ${student.name}!` };
   };
 
   const logoutStudent = () => {
     setCurrentUser(null);
-    localStorage.setItem('nexusit_portal_user_id_live', 'GUEST');
+    currentUserRef.current = null;
+    try {
+      localStorage.removeItem('nexusit_portal_user_id_live');
+      localStorage.removeItem('nexusit_portal_user_profile_live');
+    } catch {}
+    soundEngine.playVibeVoteSound();
   };
 
   const likeStudent = (studentId: string) => {
@@ -2152,6 +2217,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'nexusit_portal_students',
         'nexusit_live_portal_students_v1',
         'nexusit_portal_user_id_live',
+        'nexusit_portal_user_profile_live',
+        'nexusit_admin_unlocked',
         'nexusit_portal_note_requests_live',
         'nexusit_portal_resources_live',
         'nexusit_portal_notices_live',

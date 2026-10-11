@@ -25,6 +25,7 @@ export const PersonalDetailsModal: React.FC = () => {
   const {
     currentUser,
     setCurrentUser,
+    logoutStudent,
     updateStudentProfile,
     isPersonalDetailsOpen,
     setIsPersonalDetailsOpen,
@@ -582,8 +583,7 @@ export const PersonalDetailsModal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setCurrentUser(null);
-                    localStorage.setItem('nexusit_portal_user_id_live', 'GUEST');
+                    logoutStudent();
                     setIsPersonalDetailsOpen(false);
                   }}
                   className="pixel-btn-crimson text-xs flex items-center justify-center gap-1.5 py-2 px-3.5 cursor-pointer"
