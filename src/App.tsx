@@ -13,6 +13,7 @@ import { PersonalDetailsModal } from './components/PersonalDetailsModal';
 import { StudentIdCardModal } from './components/StudentIdCardModal';
 import { FiringPixelMatrixBackground } from './components/FiringPixelMatrixBackground';
 import { soundEngine } from './utils/soundEffects';
+import { Analytics } from '@vercel/analytics/react';
 import {
   Flame,
   CheckCircle2,
@@ -327,6 +328,7 @@ export default function App() {
   return (
     <AppProvider>
       <MainContent />
+      <Analytics />
     </AppProvider>
   );
 }
