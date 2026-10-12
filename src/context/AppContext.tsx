@@ -116,11 +116,12 @@ interface AppContextType {
   loginStudent: (identifier: string, password?: string) => { success: boolean; message: string };
   logoutStudent: () => void;
 
-  // Admin Access Gate
+  // Admin Access Gate (Cryptographically enforced)
   isAdminUnlocked: boolean;
-  unlockAdmin: (userId: string, accessCode: string) => { success: boolean; message: string };
+  unlockAdmin: (userId: string, accessCode: string) => Promise<{ success: boolean; message: string }>;
   lockAdmin: () => void;
-  adminCredentials: { username: string; password: string };
+  revokeAllAdminSessions: () => Promise<{ success: boolean; message: string }>;
+  adminCredentials: { username: string; password?: string };
   updateAdminCredentials: (newUsername: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
 
   // Notes
@@ -608,7 +609,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     // 1. Google Cloud Firestore Live Subscriptions (Instant multi-device sync)
     const unsubStudents = subscribeToStudents((liveStudents) => {
-      setStudents(liveStudents);
+      setStudents((prev) => {
+        if (!Array.isArray(liveStudents) || liveStudents.length === 0) {
+          return prev;
+        }
+        const map = new Map<string, StudentProfile>();
+        // Add existing students
+        for (const s of prev) {
+          if (s && s.id) map.set(s.id, s);
+        }
+        // Overlay Firestore live students
+        for (const s of liveStudents) {
+          if (s && s.id) {
+            const existing = map.get(s.id);
+            map.set(s.id, existing ? { ...existing, ...s } : s);
+          }
+        }
+        const merged = Array.from(map.values());
+        merged.sort((a, b) => (a.rollNumber || 0) - (b.rollNumber || 0));
+        return merged;
+      });
       setIsRealtimeConnected(true);
 
       // Keep currentUser in sync if updated by admin or likes changes
@@ -634,11 +654,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // Also keep local server cache synchronized with latest Firestore state
       try {
-        fetch('/api/database/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ students: liveStudents }),
-        }).catch(() => {});
+        if (Array.isArray(liveStudents) && liveStudents.length > 0) {
+          fetch('/api/database/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ students: liveStudents }),
+          }).catch(() => {});
+        }
       } catch {}
     });
 
@@ -677,12 +699,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
 
-    const unsubCreds = subscribeToAdminCredentials((creds) => {
-      if (creds && creds.username && creds.password) {
-        setAdminCredentialsState(creds);
-      }
-    });
-
     // 2. Initial State Fetch from backend
     const fetchDatabase = async () => {
       try {
@@ -692,8 +708,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (data && Array.isArray(data.students) && data.students.length > 0) {
           setStudents((prev) => {
-            if (prev.length > 0) return prev; // Keep Firestore live state if already active
-            return data.students;
+            const map = new Map<string, StudentProfile>();
+            // Add server students
+            for (const s of data.students) {
+              if (s && s.id) map.set(s.id, s);
+            }
+            // Overlay previous live state
+            for (const s of prev) {
+              if (s && s.id) {
+                const existing = map.get(s.id);
+                map.set(s.id, existing ? { ...existing, ...s } : s);
+              }
+            }
+            const merged = Array.from(map.values());
+            merged.sort((a, b) => (a.rollNumber || 0) - (b.rollNumber || 0));
+            return merged;
           });
 
           // If user is currently logged in, sync their profile if present in server data
@@ -1113,7 +1142,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubChat();
       unsubVibe();
       unsubFooter();
-      unsubCreds();
       if (eventSource) eventSource.close();
       clearInterval(pollInterval);
     };
@@ -1295,7 +1323,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       linkedinUrl: data.linkedinUrl || '',
       photoUrl: data.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=95',
       idCardTheme: data.idCardTheme || 'spidey',
-      password: data.password || '1Q2W',
+      password: data.password || '',
       batch,
       role: 'DEVELOPER_ADMIN',
       isAdmin: true,
@@ -1440,146 +1468,191 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).catch((err) => console.error('Error updating student on server:', err));
   };
 
-  // Admin Credentials State (customizable by user, persisted locally and on server)
-  const [adminCredentials, setAdminCredentialsState] = useState<{ username: string; password: string }>(() => {
-    try {
-      const saved = localStorage.getItem('itadda_admin_credentials');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed?.username && parsed?.password) return parsed;
-      }
-    } catch (e) {
-      // fallback
-    }
-    return { username: 'admin', password: 'admin' };
+  // Admin State (Cryptographically authorized via server session tokens)
+  const [adminCredentials, setAdminCredentialsState] = useState<{ username: string; password?: string }>({
+    username: 'priyanshu',
   });
 
-  // Sync credentials from server on load
+  const [isAdminUnlocked, setIsAdminUnlocked] = useState<boolean>(false);
+
+  // Validate admin session with server upon mount (invalidates tampered local sessions)
   useEffect(() => {
-    fetch('/api/admin/credentials')
-      .then((res) => res.json())
+    const token = localStorage.getItem('nexusit_admin_token');
+    if (!token) {
+      setIsAdminUnlocked(false);
+      localStorage.removeItem('nexusit_admin_unlocked');
+      sessionStorage.removeItem('nexusit_admin_unlocked');
+      return;
+    }
+
+    fetch('/api/admin/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.success && data?.credentials?.username) {
-          setAdminCredentialsState((prev) => ({
-            username: data.credentials.username || prev.username,
-            password: prev.password,
-          }));
+        if (data?.valid) {
+          setIsAdminUnlocked(true);
+          if (data.username) {
+            setAdminCredentialsState((prev) => ({ ...prev, username: data.username }));
+          }
+        } else {
+          setIsAdminUnlocked(false);
+          localStorage.removeItem('nexusit_admin_token');
+          localStorage.removeItem('nexusit_admin_unlocked');
+          sessionStorage.removeItem('nexusit_admin_unlocked');
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        setIsAdminUnlocked(false);
+      });
   }, []);
 
-  const updateAdminCredentials = async (newUsername: string, newPassword: string) => {
+  const unlockAdmin = async (
+    userId: string,
+    accessCode: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const cleanId = userId.trim();
+    const cleanCode = accessCode.trim();
+
+    if (!cleanId || !cleanCode) {
+      soundEngine.playDislike();
+      return { success: false, message: 'Please provide both username and access code.' };
+    }
+
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: cleanId, password: cleanCode }),
+      });
+      const data = await res.json();
+
+      if (data.success && data.token) {
+        setIsAdminUnlocked(true);
+        try {
+          localStorage.setItem('nexusit_admin_token', data.token);
+          localStorage.setItem('nexusit_admin_unlocked', 'true');
+          sessionStorage.setItem('nexusit_admin_unlocked', 'true');
+        } catch {}
+
+        setAdminCredentialsState((prev) => ({ ...prev, username: data.username || cleanId }));
+
+        // If a Developer / Admin profile already exists in the system, link it to currentUser
+        const existingDevAdmin = students.find(
+          (s) =>
+            s.role === 'DEVELOPER_ADMIN' ||
+            (s.isAdmin === true && s.status === 'APPROVED')
+        );
+
+        if (existingDevAdmin) {
+          setCurrentUser(existingDevAdmin);
+          currentUserRef.current = existingDevAdmin;
+          try {
+            localStorage.setItem('nexusit_portal_user_id_live', existingDevAdmin.id);
+            localStorage.setItem('nexusit_portal_user_profile_live', JSON.stringify(existingDevAdmin));
+          } catch {}
+        }
+
+        soundEngine.playSuccess();
+        return { success: true, message: 'Admin verified and session established securely.' };
+      } else {
+        soundEngine.playDislike();
+        return { success: false, message: data.message || 'Incorrect credentials. Access denied.' };
+      }
+    } catch {
+      soundEngine.playDislike();
+      return { success: false, message: 'Security authentication server unreachable.' };
+    }
+  };
+
+  const lockAdmin = () => {
+    const token = localStorage.getItem('nexusit_admin_token');
+    if (token) {
+      fetch('/api/admin/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      }).catch(() => {});
+    }
+
+    setIsAdminUnlocked(false);
+    try {
+      localStorage.removeItem('nexusit_admin_token');
+      localStorage.removeItem('nexusit_admin_unlocked');
+      sessionStorage.removeItem('nexusit_admin_unlocked');
+    } catch {}
+    soundEngine.playVibeVoteSound();
+  };
+
+  const revokeAllAdminSessions = async (): Promise<{ success: boolean; message: string }> => {
+    const token = localStorage.getItem('nexusit_admin_token');
+    if (!token) {
+      return { success: false, message: 'Active administrator session required.' };
+    }
+
+    try {
+      const res = await fetch('/api/admin/revoke-all', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsAdminUnlocked(false);
+        localStorage.removeItem('nexusit_admin_token');
+        localStorage.removeItem('nexusit_admin_unlocked');
+        sessionStorage.removeItem('nexusit_admin_unlocked');
+        soundEngine.playSuccess();
+        return { success: true, message: 'All active admin sessions revoked worldwide! Please sign in again.' };
+      }
+      return { success: false, message: data.message || 'Failed to revoke sessions.' };
+    } catch {
+      return { success: false, message: 'Failed to communicate with authorization server.' };
+    }
+  };
+
+  const updateAdminCredentials = async (
+    newUsername: string,
+    newPassword: string
+  ): Promise<{ success: boolean; message: string }> => {
     const cleanU = newUsername.trim();
     const cleanP = newPassword.trim();
     if (!cleanU || !cleanP) {
       return { success: false, message: 'Username and password cannot be empty.' };
     }
-    const newCreds = { username: cleanU, password: cleanP };
-    setAdminCredentialsState(newCreds);
-    localStorage.setItem('itadda_admin_credentials', JSON.stringify(newCreds));
-    saveAdminCredentialsDoc(newCreds).catch((err) => console.error('Error saving credentials to Firestore:', err));
+
+    const token = localStorage.getItem('nexusit_admin_token');
+    if (!token) {
+      return { success: false, message: 'Active admin session required to update credentials.' };
+    }
 
     try {
-      await fetch('/api/admin/credentials', {
+      const res = await fetch('/api/admin/credentials', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newCreds),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ username: cleanU, password: cleanP }),
       });
-    } catch (err) {
-      console.error('Error saving admin credentials to server:', err);
-    }
+      const data = await res.json();
 
-    soundEngine.playSuccess();
-    return {
-      success: true,
-      message: `Admin credentials updated! Username: "${cleanU}". Please use your new password next time.`,
-    };
-  };
-
-  // Admin Gate State
-  const [isAdminUnlocked, setIsAdminUnlocked] = useState<boolean>(() => {
-    try {
-      return (
-        sessionStorage.getItem('nexusit_admin_unlocked') === 'true' ||
-        localStorage.getItem('nexusit_admin_unlocked') === 'true'
-      );
-    } catch {
-      return false;
-    }
-  });
-
-  const unlockAdmin = (userId: string, accessCode: string) => {
-    const cleanId = userId.trim();
-    const cleanCode = accessCode.trim();
-
-    // 1. Check custom credentials
-    const matchesCustom =
-      cleanId.toLowerCase() === adminCredentials.username.toLowerCase() &&
-      cleanCode === adminCredentials.password;
-
-    // 2. Safe default / fallback credentials
-    const isUserValid =
-      cleanId.toLowerCase() === 'priyanshu' ||
-      cleanId.toLowerCase() === 'priyanshu gupta' ||
-      cleanId.toLowerCase() === 'guptapriyanshu0101@gmail.com' ||
-      cleanId.toLowerCase() === 'admin' ||
-      cleanId.toLowerCase() === 'developer' ||
-      cleanId === '24cs001' ||
-      cleanId === '24cs024' ||
-      cleanId === '24';
-
-    const isCodeValid =
-      cleanCode === 'admin' ||
-      cleanCode === 'nexus2026' ||
-      cleanCode === 'admin123' ||
-      cleanCode === 'priyanshu#it' ||
-      cleanCode === 'nexusit' ||
-      cleanCode === 'itadda' ||
-      cleanCode === 'itadda2026' ||
-      cleanCode === 'itadda#2026' ||
-      cleanCode === '24cs001' ||
-      cleanCode === '24cs024';
-
-    if (matchesCustom || (isUserValid && isCodeValid)) {
-      setIsAdminUnlocked(true);
-      try {
-        sessionStorage.setItem('nexusit_admin_unlocked', 'true');
-        localStorage.setItem('nexusit_admin_unlocked', 'true');
-      } catch {}
-
-      // If a Developer / Admin profile already exists in the system, link it to currentUser
-      const existingDevAdmin = students.find(
-        (s) =>
-          s.role === 'DEVELOPER_ADMIN' ||
-          (s.isAdmin === true && s.status === 'APPROVED')
-      );
-
-      if (existingDevAdmin) {
-        setCurrentUser(existingDevAdmin);
-        currentUserRef.current = existingDevAdmin;
-        try {
-          localStorage.setItem('nexusit_portal_user_id_live', existingDevAdmin.id);
-          localStorage.setItem('nexusit_portal_user_profile_live', JSON.stringify(existingDevAdmin));
-        } catch {}
+      if (data.success) {
+        setAdminCredentialsState({ username: cleanU });
+        soundEngine.playSuccess();
+        return {
+          success: true,
+          message: `Admin credentials updated securely! Username: "${cleanU}".`,
+        };
       }
-      // Note: We deliberately DO NOT auto-create a profile!
-      // The admin can click "Load / Register Your Profile" in the Admin Panel to create their profile.
-
-      soundEngine.playSuccess();
-      return { success: true, message: 'Admin verified successfully.' };
+      return { success: false, message: data.message || 'Failed to update credentials.' };
+    } catch {
+      return { success: false, message: 'Security server unavailable.' };
     }
-
-    soundEngine.playDislike();
-    return { success: false, message: 'Incorrect username or password.' };
-  };
-
-  const lockAdmin = () => {
-    setIsAdminUnlocked(false);
-    try {
-      sessionStorage.removeItem('nexusit_admin_unlocked');
-      localStorage.removeItem('nexusit_admin_unlocked');
-    } catch {}
   };
 
   const boostStudentLikes = (studentId: string, amount: number) => {
@@ -2330,6 +2403,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isAdminUnlocked,
         unlockAdmin,
         lockAdmin,
+        revokeAllAdminSessions,
         adminCredentials,
         updateAdminCredentials,
         createNoteRequest,

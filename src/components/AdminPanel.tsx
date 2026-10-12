@@ -18,6 +18,7 @@ import { GenZIdCard } from './GenZIdCard';
 import { PhotoUploadField } from './PhotoUploadField';
 import {
   ShieldCheck,
+  ShieldAlert,
   CheckCircle2,
   UserCheck,
   Megaphone,
@@ -113,6 +114,7 @@ export const AdminPanel: React.FC = () => {
     isAdminUnlocked,
     unlockAdmin,
     lockAdmin,
+    revokeAllAdminSessions,
     adminCredentials,
     updateAdminCredentials,
     setCurrentUser,
@@ -143,6 +145,7 @@ export const AdminPanel: React.FC = () => {
   const [adminAccessCode, setAdminAccessCode] = useState('');
   const [authError, setAuthError] = useState('');
   const [authSuccessMsg, setAuthSuccessMsg] = useState('');
+  const [isAuthorizing, setIsAuthorizing] = useState(false);
 
   // Admin Navigation
   const [activeAdminTab, setActiveAdminTab] = useState<
@@ -193,7 +196,7 @@ export const AdminPanel: React.FC = () => {
   const [profLinkedIn, setProfLinkedIn] = useState(developerProfile?.linkedinUrl || currentUser?.linkedinUrl || '');
   const [profPhoto, setProfPhoto] = useState(developerProfile?.photoUrl || currentUser?.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=95');
   const [profTheme, setProfTheme] = useState<IdCardTheme>(developerProfile?.idCardTheme || currentUser?.idCardTheme || 'spidey');
-  const [profPassword, setProfPassword] = useState(developerProfile?.password || currentUser?.password || '1Q2W');
+  const [profPassword, setProfPassword] = useState(developerProfile?.password || currentUser?.password || '');
   const [showProfPassword, setShowProfPassword] = useState(false);
   const [isSavingProf, setIsSavingProf] = useState(false);
 
@@ -259,7 +262,7 @@ export const AdminPanel: React.FC = () => {
     linkedinUrl: profLinkedIn || '',
     photoUrl: profPhoto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=95',
     idCardTheme: profTheme || 'spidey',
-    password: profPassword || '1Q2W',
+    password: profPassword || developerProfile?.password || currentUser?.password || '',
     role: 'DEVELOPER_ADMIN',
     status: 'APPROVED',
     likes: developerProfile?.likes || currentUser?.likes || 0,
@@ -295,7 +298,7 @@ export const AdminPanel: React.FC = () => {
         linkedinUrl: profLinkedIn.trim(),
         photoUrl: profPhoto.trim() || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=95',
         idCardTheme: profTheme,
-        password: profPassword.trim() || '1Q2W',
+        password: profPassword.trim() || developerProfile?.password || currentUser?.password || '',
       });
       showToast(res.message);
       setIsSavingProf(false);
@@ -528,14 +531,21 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
-  const handleUnlockSubmit = (e: React.FormEvent) => {
+  const handleUnlockSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
-    const res = unlockAdmin(adminUserId, adminAccessCode);
-    if (!res.success) {
-      setAuthError(res.message);
-    } else {
-      setAuthSuccessMsg(res.message);
+    setIsAuthorizing(true);
+    try {
+      const res = await unlockAdmin(adminUserId, adminAccessCode);
+      if (!res.success) {
+        setAuthError(res.message);
+      } else {
+        setAuthSuccessMsg(res.message);
+      }
+    } catch {
+      setAuthError('Authentication verification failed.');
+    } finally {
+      setIsAuthorizing(false);
     }
   };
 
@@ -713,6 +723,18 @@ export const AdminPanel: React.FC = () => {
         <div
           className="border-2 border-[#f4e6c8]/85 bg-[#1a1030]/65 backdrop-blur-xl shadow-[6px_6px_0_rgba(6,4,16,0.65)] p-6 sm:p-7"
         >
+          <div className="mb-4 pb-3 border-b-2 border-[#4b2f7e] flex items-center gap-2">
+            <ShieldAlert className="w-5 h-5 text-[#f9c74f] shrink-0" />
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-[#f9c74f] font-mono uppercase tracking-wider">
+                Admin Authentication
+              </h3>
+              <p className="text-[10px] text-[#a08fd4] font-mono">
+                Cryptographic server session verification active
+              </p>
+            </div>
+          </div>
+
           <form onSubmit={handleUnlockSubmit} className="space-y-4">
             {authError && (
               <div className="p-2.5 bg-[#d34c53]/20 border-2 border-[#d34c53] text-[#fff4d6] text-xs font-mono font-medium flex items-center gap-2">
@@ -752,9 +774,17 @@ export const AdminPanel: React.FC = () => {
 
             <button
               type="submit"
-              className="pixel-btn w-full text-xs font-mono font-bold tracking-wider"
+              disabled={isAuthorizing}
+              className="pixel-btn w-full text-xs font-mono font-bold tracking-wider disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              ▶ LOGIN
+              {isAuthorizing ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  <span>VERIFYING AUTHORIZATION...</span>
+                </>
+              ) : (
+                <span>▶ LOGIN</span>
+              )}
             </button>
           </form>
         </div>
@@ -826,8 +856,23 @@ export const AdminPanel: React.FC = () => {
           </button>
 
           <button
+            onClick={async () => {
+              if (window.confirm('SECURITY ACTION: Revoke all active admin sessions on all devices immediately? You will be logged out and will need to log in with your credentials.')) {
+                const res = await revokeAllAdminSessions();
+                showToast(res.message);
+              }
+            }}
+            className="px-2.5 py-1.5 bg-[#d34c53]/25 hover:bg-[#d34c53] text-[#f47b5c] hover:text-white border border-[#d34c53] text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-[2px_2px_0_#060410]"
+            title="Immediately kicks out any other device or user logged into the admin panel worldwide"
+          >
+            <ShieldAlert className="w-3.5 h-3.5" />
+            <span>Revoke All Devices</span>
+          </button>
+
+          <button
             onClick={lockAdmin}
             className="pixel-btn-crimson text-xs"
+            title="Lock administrative console on this device"
           >
             <Lock className="w-3.5 h-3.5" />
             <span>Lock Console</span>

@@ -13,6 +13,7 @@ import { PersonalDetailsModal } from './components/PersonalDetailsModal';
 import { StudentIdCardModal } from './components/StudentIdCardModal';
 import { FiringPixelMatrixBackground } from './components/FiringPixelMatrixBackground';
 import { soundEngine } from './utils/soundEffects';
+import { initAntiTamperProtection } from './utils/antiTamperSecurity';
 import { Analytics } from '@vercel/analytics/react';
 import {
   Flame,
@@ -84,6 +85,11 @@ function MainContent() {
     };
     window.addEventListener('campus-vibe-reset', handleVibeReset);
     return () => window.removeEventListener('campus-vibe-reset', handleVibeReset);
+  }, []);
+
+  // Enforce client-side anti-tamper protection against DevTools inspect and right-click
+  useEffect(() => {
+    return initAntiTamperProtection();
   }, []);
 
   const [vibeVoteEffect, setVibeVoteEffect] = useState<{ id: string; emoji: string } | null>(null);

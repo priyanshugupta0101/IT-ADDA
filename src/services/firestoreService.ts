@@ -282,24 +282,13 @@ export async function saveDeveloperFooterDoc(config: any): Promise<void> {
   await setDoc(docRef, cleanFirestorePayload(config), { merge: true });
 }
 
-export function subscribeToAdminCredentials(callback: (creds: { username: string; password: string }) => void) {
-  const docRef = doc(db, 'config', 'adminCredentials');
-  return onSnapshot(
-    docRef,
-    (snapshot) => {
-      if (snapshot.exists()) {
-        callback(snapshot.data() as { username: string; password: string });
-      }
-    },
-    (error) => {
-      console.error('Firestore adminCredentials subscription error:', error);
-    }
-  );
+export function subscribeToAdminCredentials(_callback: (creds: { username: string; password: string }) => void) {
+  // Disabled for platform security: Admin authentication is server-authoritative
+  return () => {};
 }
 
-export async function saveAdminCredentialsDoc(creds: { username: string; password: string }): Promise<void> {
-  const docRef = doc(db, 'config', 'adminCredentials');
-  await setDoc(docRef, cleanFirestorePayload(creds), { merge: true });
+export async function saveAdminCredentialsDoc(_creds: { username: string; password: string }): Promise<void> {
+  // Disabled for platform security: Credentials are managed exclusively on the backend
 }
 
 // Reset operations that broadcast to all devices instantly

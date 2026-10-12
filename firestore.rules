@@ -1,6 +1,10 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Explicitly block any sensitive internal config documents
+    match /config/adminCredentials {
+      allow read, write: if false;
+    }
     match /{document=**} {
       allow read, write: if true;
     }

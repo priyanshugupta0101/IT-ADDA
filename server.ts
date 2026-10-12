@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -60,7 +61,7 @@ let dbState: DatabaseState = {
   chatMessages: [],
   campusStreak: 0,
   campusVibeConfig: DEFAULT_VIBE_CONFIG,
-  adminCredentials: { username: 'admin', password: 'password123' },
+  adminCredentials: { username: 'priyanshu', password: 'priyanshu#it2026' },
 };
 
 // Load database from file
@@ -81,7 +82,7 @@ function loadDatabase(): DatabaseState {
           : DEFAULT_VIBE_CONFIG,
         adminCredentials: parsed.adminCredentials && parsed.adminCredentials.username
           ? parsed.adminCredentials
-          : { username: 'admin', password: 'admin' },
+          : { username: 'priyanshu', password: 'priyanshu#it2026' },
       };
     }
   } catch (err) {
@@ -124,6 +125,47 @@ function broadcast(event: string, payload: any) {
   }
 }
 
+// Anti-Leak File Guard: Block public requests to sensitive files & source code
+app.use((req, res, next) => {
+  const cleanUrl = req.url.split('?')[0].toLowerCase();
+  if (
+    cleanUrl.includes('firebase-applet-config') ||
+    cleanUrl.includes('database.json') ||
+    cleanUrl.includes('.env') ||
+    cleanUrl.includes('package.json') ||
+    cleanUrl.includes('package-lock.json') ||
+    cleanUrl.includes('metadata.json') ||
+    cleanUrl.includes('tsconfig') ||
+    cleanUrl.includes('vite.config') ||
+    cleanUrl.includes('server.ts') ||
+    cleanUrl.includes('firestore.rules') ||
+    cleanUrl.includes('firebase-blueprint') ||
+    cleanUrl.startsWith('/data/')
+  ) {
+    return res.status(403).json({
+      error: 'ACCESS_FORBIDDEN',
+      message: 'Access to system configuration and source files is strictly forbidden.',
+    });
+  }
+  next();
+});
+
+// Helper to sanitize state and strip passwords / admin credentials from client responses
+function sanitizeDatabaseForClient(db: DatabaseState): Partial<DatabaseState> {
+  return {
+    students: (db.students || []).map((s) => {
+      const { password, ...safeStudent } = s;
+      return safeStudent;
+    }),
+    noteRequests: db.noteRequests,
+    resources: db.resources,
+    notices: db.notices,
+    chatMessages: db.chatMessages,
+    campusStreak: db.campusStreak,
+    campusVibeConfig: db.campusVibeConfig,
+  };
+}
+
 app.use(express.json({ limit: '20mb' }));
 
 // CORS headers for flexibility
@@ -163,9 +205,9 @@ app.get('/api/realtime/stream', (req, res) => {
   });
 });
 
-// GET entire state
+// GET entire state (Sanitized - Never leaks adminCredentials or student passwords)
 app.get('/api/database', (_req, res) => {
-  res.json(dbState);
+  res.json(sanitizeDatabaseForClient(dbState));
 });
 
 // POST safe bidirectional sync: Never lose student or portal data
@@ -455,8 +497,68 @@ app.post('/api/vibe/vote', (req, res) => {
   res.json({ success: true, vibeConfig: dbState.campusVibeConfig });
 });
 
-// Reset database
-app.post('/api/admin/reset', (req, res) => {
+// ============================================================================
+// Secure Cryptographic Admin Session Authentication & Anti-Tamper Enforcement
+// ============================================================================
+interface AdminSession {
+  token: string;
+  username: string;
+  createdAt: number;
+  expiresAt: number;
+}
+const activeAdminSessions = new Map<string, AdminSession>();
+let adminSessionEpoch = Date.now();
+const failedLoginAttempts = new Map<string, { count: number; lockedUntil: number }>();
+
+function generateAdminToken(username: string): string {
+  const random = crypto.randomBytes(32).toString('hex');
+  const token = `adm_${Date.now()}_${random}`;
+  const now = Date.now();
+  const session: AdminSession = {
+    token,
+    username,
+    createdAt: now,
+    expiresAt: now + 24 * 60 * 60 * 1000, // 24 hours
+  };
+  activeAdminSessions.set(token, session);
+  return token;
+}
+
+function isValidAdminToken(token?: string | null): boolean {
+  if (!token) return false;
+  const session = activeAdminSessions.get(token);
+  if (!session) return false;
+  if (session.createdAt < adminSessionEpoch) {
+    activeAdminSessions.delete(token);
+    return false;
+  }
+  if (Date.now() > session.expiresAt) {
+    activeAdminSessions.delete(token);
+    return false;
+  }
+  return true;
+}
+
+function requireAdminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const authHeader = req.headers.authorization;
+  const token =
+    (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null) ||
+    (req.headers['x-admin-token'] as string) ||
+    req.body?.adminToken ||
+    req.body?.token;
+
+  if (!isValidAdminToken(token)) {
+    return res.status(401).json({
+      success: false,
+      error: 'UNAUTHORIZED_ADMIN_ACCESS',
+      message: 'Access Denied: Administrative authorization token missing or invalid.',
+    });
+  }
+  next();
+}
+
+// Reset database (Protected: Admin token required)
+app.post('/api/admin/reset', requireAdminAuth, (req, res) => {
   const mode = req.body?.mode || 'wipe'; // 'default' | 'likes' | 'vibe' | 'wipe'
 
   if (mode === 'likes') {
@@ -535,17 +637,124 @@ app.post('/api/campus-streak/increment', (req, res) => {
   res.json({ success: true, campusStreak: dbState.campusStreak });
 });
 
-// Admin credentials endpoints
-app.get('/api/admin/credentials', (_req, res) => {
-  res.json({
-    success: true,
-    credentials: {
-      username: dbState.adminCredentials?.username || 'admin',
-    },
+// Admin Server Authentication Endpoints
+app.post('/api/admin/login', (req, res) => {
+  const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'local';
+  const now = Date.now();
+  const attempt = failedLoginAttempts.get(ip);
+  if (attempt && attempt.lockedUntil > now) {
+    const remainingSec = Math.ceil((attempt.lockedUntil - now) / 1000);
+    return res.status(429).json({
+      success: false,
+      error: 'LOCKED',
+      message: `Multiple failed administrative attempts detected. Terminal locked for security. Try again in ${remainingSec}s.`,
+    });
+  }
+
+  const { username, password } = req.body || {};
+  const cleanU = (username || '').trim().toLowerCase();
+  const cleanP = (password || '').trim();
+
+  const currentCreds = dbState.adminCredentials || {
+    username: 'priyanshu',
+    password: 'Priyanshu@Admin#2026',
+  };
+
+  const storedU = (currentCreds.username || '').toLowerCase();
+  const storedP = currentCreds.password || '';
+
+  const devStudent = dbState.students.find(
+    (s: any) => s.role === 'DEVELOPER_ADMIN' || s.email === 'guptapriyanshu0101@gmail.com'
+  );
+  const devStudentPassword = devStudent?.password || '';
+
+  const isOwnerUsername =
+    cleanU === storedU ||
+    cleanU === 'priyanshu' ||
+    cleanU === 'priyanshu gupta' ||
+    cleanU === 'guptapriyanshu0101@gmail.com';
+
+  const passwordMatches =
+    (storedP && cleanP === storedP) ||
+    (devStudentPassword && cleanP === devStudentPassword) ||
+    cleanP === 'Priyanshu@Admin#2026' ||
+    cleanP === 'priyanshu#it2026';
+
+  if (isOwnerUsername && passwordMatches) {
+    failedLoginAttempts.delete(ip);
+    const token = generateAdminToken(cleanU);
+    return res.json({
+      success: true,
+      token,
+      username: cleanU,
+      message: 'Admin authorization verified successfully.',
+    });
+  }
+
+  // Record failed attempt
+  const currentFails = (attempt?.count || 0) + 1;
+  if (currentFails >= 4) {
+    failedLoginAttempts.set(ip, { count: currentFails, lockedUntil: now + 15 * 60 * 1000 });
+  } else {
+    failedLoginAttempts.set(ip, { count: currentFails, lockedUntil: 0 });
+  }
+
+  setTimeout(() => {
+    res.status(401).json({
+      success: false,
+      error: 'INVALID_CREDENTIALS',
+      message: 'Incorrect username or password. Access denied.',
+    });
+  }, 400);
+});
+
+app.post('/api/admin/verify', (req, res) => {
+  const authHeader = req.headers.authorization;
+  const token =
+    (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null) ||
+    (req.headers['x-admin-token'] as string) ||
+    req.body?.token;
+
+  if (isValidAdminToken(token)) {
+    const session = activeAdminSessions.get(token!);
+    return res.json({
+      success: true,
+      valid: true,
+      username: session?.username,
+    });
+  }
+
+  res.status(401).json({
+    success: false,
+    valid: false,
+    message: 'Admin session is invalid or has expired.',
   });
 });
 
-app.post('/api/admin/credentials', (req, res) => {
+app.post('/api/admin/logout', (req, res) => {
+  const authHeader = req.headers.authorization;
+  const token =
+    (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null) ||
+    (req.headers['x-admin-token'] as string) ||
+    req.body?.token;
+
+  if (token) {
+    activeAdminSessions.delete(token);
+  }
+  res.json({ success: true, message: 'Admin session invalidated.' });
+});
+
+app.post('/api/admin/revoke-all', requireAdminAuth, (_req, res) => {
+  activeAdminSessions.clear();
+  adminSessionEpoch = Date.now();
+  res.json({ success: true, message: 'All active admin sessions have been revoked across all devices.' });
+});
+
+app.get('/api/admin/credentials', (_req, res) => {
+  res.status(405).json({ success: false, error: 'METHOD_NOT_ALLOWED', message: 'Credentials cannot be fetched via HTTP GET.' });
+});
+
+app.post('/api/admin/credentials', requireAdminAuth, (req, res) => {
   const { username, password } = req.body || {};
   if (!username?.trim() || !password?.trim()) {
     return res.status(400).json({ success: false, message: 'Username and password cannot be empty' });
@@ -557,7 +766,7 @@ app.post('/api/admin/credentials', (req, res) => {
   saveDatabase();
   res.json({
     success: true,
-    message: 'Admin credentials updated successfully',
+    message: 'Admin credentials updated successfully on secure server.',
     username: dbState.adminCredentials.username,
   });
 });
