@@ -1697,10 +1697,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const boostStudentLikes = (studentId: string, amount: number) => {
-    const student = students.find((s) => s.id === studentId);
-    if (!student) return;
-    const newLikes = Math.max(0, student.likes + amount);
-    updateStudentProfile(studentId, { likes: newLikes });
+    const boostNum = Math.max(1, Math.floor(amount));
+    const target = students.find((s) => s.id === studentId);
+    if (!target) return;
+
+    const currentLikedBy = Array.isArray(target.likedBy) ? [...target.likedBy] : [];
+
+    // Find real classmates from other registered students who have not yet liked this profile
+    const eligibleOthers = students.filter(
+      (s) => s.id !== studentId && !currentLikedBy.includes(s.id)
+    );
+
+    const newPeerIds: string[] = [];
+
+    // 1. First assign IDs from actual batch classmates
+    for (const other of eligibleOthers) {
+      if (newPeerIds.length >= boostNum) break;
+      newPeerIds.push(other.id);
+    }
+
+    // 2. If additional likes are requested, generate authentic Division A peer IDs (rolls 1-63)
+    if (newPeerIds.length < boostNum) {
+      const needed = boostNum - newPeerIds.length;
+      for (let i = 0; i < needed; i++) {
+        const randomRoll = Math.floor(Math.random() * 63) + 1;
+        const fakeTimeOffset = Date.now() - Math.floor(Math.random() * 86400000 * 3) - i * 1800000;
+        const peerId = `std_${randomRoll}_${fakeTimeOffset}`;
+        if (!currentLikedBy.includes(peerId) && !newPeerIds.includes(peerId)) {
+          newPeerIds.push(peerId);
+        }
+      }
+    }
+
+    const updatedLikedBy = [...currentLikedBy, ...newPeerIds];
+    const newLikes = (target.likes || 0) + boostNum;
+
+    updateStudentProfile(studentId, {
+      likes: newLikes,
+      likedBy: updatedLikedBy,
+    });
   };
 
   const setStudentLikes = (studentId: string, likes: number) => {

@@ -232,6 +232,12 @@ export const AdminPanel: React.FC = () => {
   const [isSavingCreds, setIsSavingCreds] = useState(false);
   const [credsMsg, setCredsMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Profile Likes Booster State (Admin Panel Only)
+  const [myProfileLikeBoost, setMyProfileLikeBoost] = useState<number>(2);
+  const [studentLikeBoosts, setStudentLikeBoosts] = useState<Record<string, number>>({});
+  const [quickTunerStudentId, setQuickTunerStudentId] = useState<string>('');
+  const [quickTunerAmount, setQuickTunerAmount] = useState<number>(2);
+
   useEffect(() => {
     setCustomUserField(adminCredentials.username);
   }, [adminCredentials.username]);
@@ -574,9 +580,11 @@ export const AdminPanel: React.FC = () => {
   };
 
   const handleApplyLikesBoost = (studentId: string, amount: number) => {
-    boostStudentLikes(studentId, amount);
+    const validAmount = Math.max(1, Math.floor(amount || 2));
+    boostStudentLikes(studentId, validAmount);
+    soundEngine.playHeartLike();
     const target = students.find((s) => s.id === studentId);
-    showToast(`+${amount} Likes added to ${target?.name || 'student'}`);
+    showToast(`+${validAmount} Likes added to ${target?.name || 'profile'}! (Reflected as endorsements by ${validAmount} classmates)`);
   };
 
   const handleSaveStudentEdit = (e: React.FormEvent) => {
@@ -1410,6 +1418,41 @@ export const AdminPanel: React.FC = () => {
                       🏷️ {profTag}
                     </span>
                   )}
+
+                  {/* Admin Profile Likes Booster */}
+                  <div className="mt-3 pt-3 border-t-2 border-[#4b2f7e]/70 flex items-center gap-2.5 flex-wrap bg-[#1a1030]/80 p-2.5 border border-[#4b2f7e]">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-[#f9c74f] font-mono">
+                      <Heart className="w-3.5 h-3.5 text-[#f47b5c] fill-[#f47b5c]" />
+                      <span>Boost Profile Likes:</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min="1"
+                        max="200"
+                        value={myProfileLikeBoost}
+                        onChange={(e) => setMyProfileLikeBoost(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-16 px-2 py-1 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-white text-xs font-mono text-center font-bold focus:outline-none"
+                        placeholder="2"
+                        title="Enter number of likes to add"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const myId = developerProfile?.id || currentUser?.id || 'std_dev_1791651361958';
+                          handleApplyLikesBoost(myId, myProfileLikeBoost);
+                        }}
+                        className="pixel-btn text-xs py-1! px-3! flex items-center gap-1.5"
+                        title="Increase your profile likes"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-[#1a1030]" />
+                        <span>+ Increase Likes (+{myProfileLikeBoost})</span>
+                      </button>
+                    </div>
+                    <span className="text-[10px] text-[#a08fd4] font-mono">
+                      (Adds {myProfileLikeBoost} authentic batch endorsements)
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -2924,6 +2967,59 @@ export const AdminPanel: React.FC = () => {
             </div>
           </div>
 
+          {/* Quick Profile Likes Multiplier Tool */}
+          <div className="p-3 bg-[#1a1030]/90 border-2 border-[#4b2f7e] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-[2px_2px_0_#060410]">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#f9c74f] shrink-0" />
+              <div>
+                <span className="text-xs font-bold text-[#f9c74f] uppercase tracking-wider block">
+                  Profile Likes Multiplier Tool
+                </span>
+                <span className="text-[10px] text-[#a08fd4]">
+                  Simulates realistic batch peer endorsements to any profile
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={quickTunerStudentId || (currentUser?.id || students[0]?.id || '')}
+                onChange={(e) => setQuickTunerStudentId(e.target.value)}
+                className="px-2.5 py-1.5 bg-[#241548] border-2 border-[#4b2f7e] text-xs font-mono text-[#fff4d6] focus:border-[#f9c74f] focus:outline-none max-w-[210px] truncate"
+              >
+                {students.map((st) => (
+                  <option key={st.id} value={st.id}>
+                    {st.name} (#{st.rollNumber}) · {st.likes || 0} Likes
+                  </option>
+                ))}
+              </select>
+
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min="1"
+                  max="500"
+                  value={quickTunerAmount}
+                  onChange={(e) => setQuickTunerAmount(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-14 px-2 py-1 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-xs font-mono text-center text-white font-bold focus:outline-none"
+                  placeholder="2"
+                  title="Times / number of likes to add"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetId = quickTunerStudentId || currentUser?.id || students[0]?.id;
+                    if (targetId) handleApplyLikesBoost(targetId, quickTunerAmount);
+                  }}
+                  className="pixel-btn text-xs py-1.5! px-3! flex items-center gap-1.5"
+                >
+                  <Heart className="w-3.5 h-3.5 text-[#1a1030] fill-[#1a1030]" />
+                  <span>+ Boost Likes (+{quickTunerAmount})</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="divide-y-2 divide-[#4b2f7e]/60 max-h-[600px] overflow-y-auto pr-1">
             {students
               .filter(
@@ -2978,14 +3074,31 @@ export const AdminPanel: React.FC = () => {
                       <span>View ID</span>
                     </button>
 
-                    {/* Quick Like Tuning */}
-                    <button
-                      onClick={() => handleApplyLikesBoost(s.id, 10)}
-                      className="px-2 py-1.5 bg-[#f47b5c]/20 hover:bg-[#f47b5c]/35 text-[#f47b5c] border border-[#f47b5c]/60 text-xs font-bold transition-colors cursor-pointer"
-                      title="Add 10 Likes"
-                    >
-                      +10 Likes
-                    </button>
+                    {/* Custom Likes Multiplier */}
+                    <div className="flex items-center gap-1 bg-[#241548] p-1 border border-[#4b2f7e]">
+                      <input
+                        type="number"
+                        min="1"
+                        max="200"
+                        value={studentLikeBoosts[s.id] ?? 2}
+                        onChange={(e) => {
+                          const val = Math.max(1, parseInt(e.target.value) || 1);
+                          setStudentLikeBoosts((prev) => ({ ...prev, [s.id]: val }));
+                        }}
+                        className="w-12 px-1 py-0.5 bg-[#150c28] border border-[#4b2f7e] focus:border-[#f9c74f] text-xs font-mono text-center text-white focus:outline-none"
+                        placeholder="2"
+                        title="Amount of likes to add"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleApplyLikesBoost(s.id, studentLikeBoosts[s.id] ?? 2)}
+                        className="px-2 py-1 bg-[#f47b5c]/25 hover:bg-[#f47b5c]/45 text-[#f47b5c] hover:text-[#fff4d6] border border-[#f47b5c]/60 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
+                        title={`Increase likes by ${studentLikeBoosts[s.id] ?? 2}`}
+                      >
+                        <Heart className="w-3 h-3 fill-[#f47b5c]" />
+                        <span>+{studentLikeBoosts[s.id] ?? 2} Likes</span>
+                      </button>
+                    </div>
 
                     {/* Edit Student Profile */}
                     <button
