@@ -111,3 +111,81 @@ export function sortAndFilterStudents(
   // Strictly sort according to roll numbers in ascending order: 1, 2, 3, 4, etc.
   return [...list].sort((a, b) => Number(a.rollNumber) - Number(b.rollNumber));
 }
+
+/**
+ * Checks whether a given birthDate (e.g. "2006-10-16" or "10-16") is today.
+ * Matches current Month and Day.
+ */
+export function isBirthdayToday(birthDate?: string | null): boolean {
+  if (!birthDate || typeof birthDate !== 'string') return false;
+  const trimmed = birthDate.trim();
+  if (!trimmed) return false;
+
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1; // 1-12
+  const currentDay = now.getDate(); // 1-31
+
+  // Handle YYYY-MM-DD or MM-DD or DD/MM/YYYY
+  if (trimmed.includes('-')) {
+    const parts = trimmed.split('-');
+    if (parts.length === 3) {
+      // YYYY-MM-DD
+      const month = parseInt(parts[1], 10);
+      const day = parseInt(parts[2], 10);
+      return month === currentMonth && day === currentDay;
+    } else if (parts.length === 2) {
+      // MM-DD
+      const month = parseInt(parts[0], 10);
+      const day = parseInt(parts[1], 10);
+      return month === currentMonth && day === currentDay;
+    }
+  } else if (trimmed.includes('/')) {
+    const parts = trimmed.split('/');
+    if (parts.length === 3) {
+      // DD/MM/YYYY
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10);
+      return month === currentMonth && day === currentDay;
+    }
+  }
+
+  const d = new Date(trimmed);
+  if (!isNaN(d.getTime())) {
+    return d.getMonth() + 1 === currentMonth && d.getDate() === currentDay;
+  }
+
+  return false;
+}
+
+export function formatBirthdayDisplay(birthDate?: string | null, includeYear = true): string {
+  if (!birthDate) return '';
+  const trimmed = birthDate.trim();
+  if (!trimmed) return '';
+
+  const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  if (trimmed.includes('-')) {
+    const parts = trimmed.split('-');
+    if (parts.length === 3) {
+      const year = parts[0];
+      const monthIdx = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      if (monthIdx >= 0 && monthIdx < 12) {
+        return includeYear ? `${day} ${MONTH_NAMES[monthIdx]} ${year}` : `${day} ${MONTH_NAMES[monthIdx]}`;
+      }
+    }
+  }
+
+  const d = new Date(trimmed);
+  if (!isNaN(d.getTime())) {
+    return includeYear
+      ? `${d.getDate()} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`
+      : `${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`;
+  }
+
+  return trimmed;
+}
+

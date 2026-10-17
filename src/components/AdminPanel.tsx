@@ -601,6 +601,7 @@ export const AdminPanel: React.FC = () => {
       branch: editingStudent.branch,
       role: editingStudent.role,
       status: editingStudent.status,
+      dateOfBirth: editingStudent.dateOfBirth,
     });
     showToast(`Saved changes for ${editingStudent.name}`);
     setEditingStudent(null);
@@ -735,11 +736,8 @@ export const AdminPanel: React.FC = () => {
             <ShieldAlert className="w-5 h-5 text-[#f9c74f] shrink-0" />
             <div>
               <h3 className="text-xs sm:text-sm font-bold text-[#f9c74f] font-mono uppercase tracking-wider">
-                Admin Authentication
+                Admin Login
               </h3>
-              <p className="text-[10px] text-[#a08fd4] font-mono">
-                Cryptographic server session verification active
-              </p>
             </div>
           </div>
 
@@ -759,7 +757,7 @@ export const AdminPanel: React.FC = () => {
                   setAdminUserId(e.target.value);
                   if (authError) setAuthError('');
                 }}
-                placeholder="Enter the username"
+                placeholder="Username"
                 required
                 autoFocus
                 className="w-full px-3.5 py-2.5 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-white placeholder:text-[#a08fd4]/70 font-mono text-xs focus:outline-none transition-colors"
@@ -774,7 +772,7 @@ export const AdminPanel: React.FC = () => {
                   setAdminAccessCode(e.target.value);
                   if (authError) setAuthError('');
                 }}
-                placeholder="Enter the password"
+                placeholder="Password"
                 required
                 className="w-full px-3.5 py-2.5 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-white placeholder:text-[#a08fd4]/70 font-mono text-xs focus:outline-none transition-colors"
               />
@@ -788,10 +786,10 @@ export const AdminPanel: React.FC = () => {
               {isAuthorizing ? (
                 <>
                   <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  <span>VERIFYING AUTHORIZATION...</span>
+                  <span>Verifying...</span>
                 </>
               ) : (
-                <span>▶ LOGIN</span>
+                <span>Login</span>
               )}
             </button>
           </form>
@@ -822,16 +820,13 @@ export const AdminPanel: React.FC = () => {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-lg sm:text-xl font-bold text-[#f9c74f] tracking-wider uppercase font-mono">
-                Department Administrative Center
+                Admin Center
               </h2>
               <span className="text-[11px] font-mono font-bold px-2 py-0.5 bg-[#f9c74f] text-[#1a1030] border border-[#f4e6c8] flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#1a1030] animate-pulse" />
-                VERIFIED ADMIN // UNLOCKED
+                ADMIN
               </span>
             </div>
-            <p className="text-xs text-[#a08fd4] mt-1 font-mono">
-              Publish lecture notes, upload study materials, broadcast announcements & notices
-            </p>
             {currentUser && (
               <div className="mt-2.5 flex items-center gap-2 flex-wrap">
                 <span className="text-[11px] text-[#a08fd4]">Admin Profile:</span>
@@ -1048,13 +1043,7 @@ export const AdminPanel: React.FC = () => {
                     <h4 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider">
                       Developer / Admin Profile Not Linked
                     </h4>
-                    <span className="text-[10px] font-bold px-2 py-0.5 bg-[#f47b5c] text-[#1a1030] border border-[#f4e6c8]">
-                      START HERE
-                    </span>
                   </div>
-                  <p className="text-xs text-[#b9a7e8] mt-0.5">
-                    Click to load and register your Developer profile so classmates can view you on the directory and leaderboard.
-                  </p>
                 </div>
               </div>
 
@@ -1106,120 +1095,102 @@ export const AdminPanel: React.FC = () => {
           {/* Quick Publishing Center Cards */}
           <div>
             <div className="mb-3 flex items-center justify-between font-mono">
-              <div>
-                <h3 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider">Admin Publishing Center</h3>
-                <p className="text-xs text-[#a08fd4]">1-Click shortcuts to upload materials and make department broadcasts</p>
-              </div>
+              <h3 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider">Quick Actions</h3>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
               {/* Card 1: Upload Notes */}
               <div
                 onClick={() => setActiveAdminTab('NOTES')}
-                className="bg-[#1a1030]/65 hover:bg-[#241548]/75 backdrop-blur-md border-2 border-[#4b2f7e]/80 hover:border-[#f9c74f] p-5 shadow-[4px_4px_0_#060410] transition-all cursor-pointer group flex flex-col justify-between font-mono"
+                className="bg-[#1a1030]/65 hover:bg-[#241548]/75 backdrop-blur-md border-2 border-[#4b2f7e]/80 hover:border-[#f9c74f] p-4 shadow-[4px_4px_0_#060410] transition-all cursor-pointer group flex flex-col justify-between font-mono"
               >
                 <div>
-                  <div className="w-10 h-10 border-2 border-[#f4e6c8] bg-[#f47b5c] text-[#1a1030] flex items-center justify-center mb-3 shadow-[2px_2px_0_#060410]">
-                    <FileText className="w-5 h-5" />
+                  <div className="w-9 h-9 border-2 border-[#f4e6c8] bg-[#f47b5c] text-[#1a1030] flex items-center justify-center mb-2.5 shadow-[2px_2px_0_#060410]">
+                    <FileText className="w-4 h-4" />
                   </div>
                   <h4 className="text-sm font-bold text-[#f4e6c8] group-hover:text-[#f9c74f] transition-colors uppercase">
                     Upload Notes
                   </h4>
-                  <p className="text-xs text-[#a08fd4] mt-1 leading-relaxed">
-                    Upload lecture notes, chapter summaries, or fulfill open student note requests with files.
-                  </p>
                 </div>
-                <div className="mt-4 pt-3 border-t-2 border-[#4b2f7e] flex items-center justify-between text-xs font-bold text-[#f9c74f]">
-                  <span>Open Note Uploader</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <div className="mt-3 pt-2.5 border-t border-[#4b2f7e] flex items-center justify-between text-xs font-bold text-[#f9c74f]">
+                  <span>Notes</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
 
               {/* Card 2: Upload Resources */}
               <div
                 onClick={() => setActiveAdminTab('RESOURCES')}
-                className="bg-[#1a1030]/65 hover:bg-[#241548]/75 backdrop-blur-md border-2 border-[#4b2f7e]/80 hover:border-[#f9c74f] p-5 shadow-[4px_4px_0_#060410] transition-all cursor-pointer group flex flex-col justify-between font-mono"
+                className="bg-[#1a1030]/65 hover:bg-[#241548]/75 backdrop-blur-md border-2 border-[#4b2f7e]/80 hover:border-[#f9c74f] p-4 shadow-[4px_4px_0_#060410] transition-all cursor-pointer group flex flex-col justify-between font-mono"
               >
                 <div>
-                  <div className="w-10 h-10 border-2 border-[#f4e6c8] bg-[#f9c74f] text-[#1a1030] flex items-center justify-center mb-3 shadow-[2px_2px_0_#060410]">
-                    <FolderArchive className="w-5 h-5" />
+                  <div className="w-9 h-9 border-2 border-[#f4e6c8] bg-[#f9c74f] text-[#1a1030] flex items-center justify-center mb-2.5 shadow-[2px_2px_0_#060410]">
+                    <FolderArchive className="w-4 h-4" />
                   </div>
                   <h4 className="text-sm font-bold text-[#f4e6c8] group-hover:text-[#f9c74f] transition-colors uppercase">
                     Upload Resources
                   </h4>
-                  <p className="text-xs text-[#a08fd4] mt-1 leading-relaxed">
-                    Publish university PYQs, lab manuals, cheat sheets, formula sheets, and reference books.
-                  </p>
                 </div>
-                <div className="mt-4 pt-3 border-t-2 border-[#4b2f7e] flex items-center justify-between text-xs font-bold text-[#f9c74f]">
-                  <span>Upload Materials</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <div className="mt-3 pt-2.5 border-t border-[#4b2f7e] flex items-center justify-between text-xs font-bold text-[#f9c74f]">
+                  <span>Resources</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
 
               {/* Card 3: Make Announcements */}
               <div
                 onClick={() => setActiveAdminTab('ANNOUNCEMENTS')}
-                className="bg-[#1a1030]/65 hover:bg-[#241548]/75 backdrop-blur-md border-2 border-[#4b2f7e]/80 hover:border-[#f9c74f] p-5 shadow-[4px_4px_0_#060410] transition-all cursor-pointer group flex flex-col justify-between font-mono"
+                className="bg-[#1a1030]/65 hover:bg-[#241548]/75 backdrop-blur-md border-2 border-[#4b2f7e]/80 hover:border-[#f9c74f] p-4 shadow-[4px_4px_0_#060410] transition-all cursor-pointer group flex flex-col justify-between font-mono"
               >
                 <div>
-                  <div className="w-10 h-10 border-2 border-[#f4e6c8] bg-[#f47b5c] text-[#1a1030] flex items-center justify-center mb-3 shadow-[2px_2px_0_#060410]">
-                    <Megaphone className="w-5 h-5" />
+                  <div className="w-9 h-9 border-2 border-[#f4e6c8] bg-[#f47b5c] text-[#1a1030] flex items-center justify-center mb-2.5 shadow-[2px_2px_0_#060410]">
+                    <Megaphone className="w-4 h-4" />
                   </div>
                   <h4 className="text-sm font-bold text-[#f4e6c8] group-hover:text-[#f9c74f] transition-colors uppercase">
-                    Make Announcements
+                    Announcements
                   </h4>
-                  <p className="text-xs text-[#a08fd4] mt-1 leading-relaxed">
-                    Broadcast high-priority batch announcements with pinned status to all student notification feeds.
-                  </p>
                 </div>
-                <div className="mt-4 pt-3 border-t-2 border-[#4b2f7e] flex items-center justify-between text-xs font-bold text-[#f9c74f]">
-                  <span>Broadcast Now</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <div className="mt-3 pt-2.5 border-t border-[#4b2f7e] flex items-center justify-between text-xs font-bold text-[#f9c74f]">
+                  <span>Broadcast</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
 
               {/* Card 4: Upload Notices */}
               <div
                 onClick={() => setActiveAdminTab('NOTICES')}
-                className="bg-[#1a1030]/65 hover:bg-[#241548]/75 backdrop-blur-md border-2 border-[#4b2f7e]/80 hover:border-[#f9c74f] p-5 shadow-[4px_4px_0_#060410] transition-all cursor-pointer group flex flex-col justify-between font-mono"
+                className="bg-[#1a1030]/65 hover:bg-[#241548]/75 backdrop-blur-md border-2 border-[#4b2f7e]/80 hover:border-[#f9c74f] p-4 shadow-[4px_4px_0_#060410] transition-all cursor-pointer group flex flex-col justify-between font-mono"
               >
                 <div>
-                  <div className="w-10 h-10 border-2 border-[#f4e6c8] bg-[#f9c74f] text-[#1a1030] flex items-center justify-center mb-3 shadow-[2px_2px_0_#060410]">
-                    <FileCheck className="w-5 h-5" />
+                  <div className="w-9 h-9 border-2 border-[#f4e6c8] bg-[#f9c74f] text-[#1a1030] flex items-center justify-center mb-2.5 shadow-[2px_2px_0_#060410]">
+                    <FileCheck className="w-4 h-4" />
                   </div>
                   <h4 className="text-sm font-bold text-[#f4e6c8] group-hover:text-[#f9c74f] transition-colors uppercase">
                     Upload Notices
                   </h4>
-                  <p className="text-xs text-[#a08fd4] mt-1 leading-relaxed">
-                    Publish official circulars, exam schedules, and university orders with attachments.
-                  </p>
                 </div>
-                <div className="mt-4 pt-3 border-t-2 border-[#4b2f7e] flex items-center justify-between text-xs font-bold text-[#f9c74f]">
-                  <span>Publish Notice</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <div className="mt-3 pt-2.5 border-t border-[#4b2f7e] flex items-center justify-between text-xs font-bold text-[#f9c74f]">
+                  <span>Notices</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
 
               {/* Card 5: Campus Vibe Poll */}
               <div
                 onClick={() => setActiveAdminTab('VIBE')}
-                className="bg-[#1a1030]/65 hover:bg-[#241548]/75 backdrop-blur-md border-2 border-[#4b2f7e]/80 hover:border-[#f9c74f] p-5 shadow-[4px_4px_0_#060410] transition-all cursor-pointer group flex flex-col justify-between font-mono"
+                className="bg-[#1a1030]/65 hover:bg-[#241548]/75 backdrop-blur-md border-2 border-[#4b2f7e]/80 hover:border-[#f9c74f] p-4 shadow-[4px_4px_0_#060410] transition-all cursor-pointer group flex flex-col justify-between font-mono"
               >
                 <div>
-                  <div className="w-10 h-10 border-2 border-[#f4e6c8] bg-[#ff9844] text-[#1a1030] flex items-center justify-center mb-3 shadow-[2px_2px_0_#060410]">
-                    <Sparkles className="w-5 h-5" />
+                  <div className="w-9 h-9 border-2 border-[#f4e6c8] bg-[#ff9844] text-[#1a1030] flex items-center justify-center mb-2.5 shadow-[2px_2px_0_#060410]">
+                    <Sparkles className="w-4 h-4" />
                   </div>
                   <h4 className="text-sm font-bold text-[#f4e6c8] group-hover:text-[#f9c74f] transition-colors uppercase">
-                    Campus Vibe Poll
+                    Vibe Poll
                   </h4>
-                  <p className="text-xs text-[#a08fd4] mt-1 leading-relaxed">
-                    Customize the section title, add or delete mood choices, and update vote counts in real-time.
-                  </p>
                 </div>
-                <div className="mt-4 pt-3 border-t-2 border-[#4b2f7e] flex items-center justify-between text-xs font-bold text-[#f9c74f]">
-                  <span>Manage Vibe Poll</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <div className="mt-3 pt-2.5 border-t border-[#4b2f7e] flex items-center justify-between text-xs font-bold text-[#f9c74f]">
+                  <span>Poll</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
             </div>
@@ -1331,21 +1302,15 @@ export const AdminPanel: React.FC = () => {
               )}
             </div>
 
-            <div className="bg-[#1a1030]/65 backdrop-blur-md border-2 border-[#4b2f7e]/80 p-6 shadow-[4px_4px_0_#060410] space-y-4">
-              <h3 className="text-sm font-bold text-[#f9c74f] flex items-center gap-2 uppercase tracking-wider">
+            <div className="bg-[#1a1030]/65 backdrop-blur-md border-2 border-[#4b2f7e]/80 p-4 shadow-[4px_4px_0_#060410] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
                 <Radio className="w-4 h-4 text-[#52b788]" />
-                <span>Multi-Device Database Synchronization</span>
-              </h3>
-              <p className="text-xs text-[#a08fd4] leading-relaxed">
-                Persistent server database is running with Server-Sent Events (SSE) enabled. Notes, resources, notices, and announcements published here sync immediately to students on all devices.
-              </p>
-              <div className="flex items-center gap-2 text-xs flex-wrap">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#2d6a4f]/30 text-[#52b788] border border-[#52b788] font-bold text-[11px]">
-                  <span className="w-2 h-2 rounded-full bg-[#52b788] animate-pulse" />
-                  Real-Time Database Active
-                </span>
-                <span className="text-[#a08fd4] font-mono text-[11px]">Server Port 3000 · data/database.json</span>
+                <span className="text-sm font-bold text-[#f9c74f] uppercase tracking-wider">Database Status</span>
               </div>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#2d6a4f]/30 text-[#52b788] border border-[#52b788] font-bold text-[11px]">
+                <span className="w-2 h-2 rounded-full bg-[#52b788] animate-pulse" />
+                Live Sync Active
+              </span>
             </div>
           </div>
         </div>
@@ -1372,9 +1337,6 @@ export const AdminPanel: React.FC = () => {
                       ROLE: DEVELOPER / ADMIN
                     </span>
                   </div>
-                  <p className="text-xs text-[#b9a7e8] mt-1 font-mono max-w-2xl leading-relaxed">
-                    Fill out the form below to register and load your official profile. Once submitted, it will be automatically approved and visible to all other students in the directory and leaderboard with the official DEVELOPER / ADMIN mention in front.
-                  </p>
                 </div>
               </div>
 
@@ -1607,8 +1569,7 @@ export const AdminPanel: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <User className="w-5 h-5 text-[#f47b5c]" />
                     <div>
-                      <h4 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider">Personal & Academic Details</h4>
-                      <p className="text-xs text-[#a08fd4]">Manage your personal profile visible on the directory and ID card</p>
+                      <h4 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider">Profile Details</h4>
                     </div>
                   </div>
                   <span className="text-[11px] font-bold px-2 py-0.5 bg-[#2d6a4f]/30 text-[#52b788] border border-[#52b788]">
@@ -1894,9 +1855,6 @@ export const AdminPanel: React.FC = () => {
                     </div>
                     <div>
                       <h4 className="text-sm font-bold text-[#f9c74f] uppercase tracking-wider">Admin Login Credentials</h4>
-                      <p className="text-xs text-[#a08fd4]">
-                        Change the username and password required to unlock this admin console
-                      </p>
                     </div>
                   </div>
                   <div className="text-[11px] font-bold px-2.5 py-1 bg-[#241548] text-[#f9c74f] border border-[#4b2f7e]">
@@ -1996,12 +1954,9 @@ export const AdminPanel: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <FileText className="w-5 h-5 text-[#f9c74f]" />
                   <h3 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider">
-                    {fulfillingReq ? `Fulfill Student Note Request: ${fulfillingReq.topic}` : 'Upload Official Lecture Notes'}
+                    {fulfillingReq ? `Fulfill Note Request: ${fulfillingReq.topic}` : 'Upload Notes'}
                   </h3>
                 </div>
-                <p className="text-xs text-[#a08fd4] mt-0.5">
-                  Publish unit-wise handwritten notes, revision guides, and exam preparation material directly for students
-                </p>
               </div>
 
               {fulfillingReq && (
@@ -2145,8 +2100,7 @@ export const AdminPanel: React.FC = () => {
           <div className="border-2 border-[#4b2f7e]/80 bg-[#150c28]/60 backdrop-blur-xl p-5 sm:p-6 shadow-[6px_6px_0_rgba(6,4,16,0.65)] font-mono space-y-4">
             <div className="pb-3 border-b-2 border-[#4b2f7e] flex items-center justify-between">
               <div>
-                <h3 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider">Student Note Requests ({noteRequests.length})</h3>
-                <p className="text-xs text-[#a08fd4]">Review topics requested by students and fulfill with study files</p>
+                <h3 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider">Note Requests ({noteRequests.length})</h3>
               </div>
               <span className="text-xs font-bold text-[#f9c74f] bg-[#241548] px-2.5 py-1 border border-[#4b2f7e]">
                 {noteRequests.filter((r) => !r.fulfilled).length} Awaiting Notes
@@ -2365,7 +2319,6 @@ export const AdminPanel: React.FC = () => {
                 <h3 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider">
                   Manage Academic Resources ({resources.length})
                 </h3>
-                <p className="text-xs text-[#a08fd4]">Search, verify, and moderate existing study materials</p>
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
@@ -2745,9 +2698,8 @@ export const AdminPanel: React.FC = () => {
             <div className="flex items-center justify-between pb-3 border-b-2 border-[#4b2f7e]">
               <div>
                 <h3 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider">
-                  Student-Submitted Circulars Verification ({pendingNotices.length} Pending)
+                  Student Circulars Verification ({pendingNotices.length} Pending)
                 </h3>
-                <p className="text-xs text-[#a08fd4]">Review and authorize notices submitted by students before publication</p>
               </div>
             </div>
 
@@ -2823,7 +2775,6 @@ export const AdminPanel: React.FC = () => {
           <div className="flex items-center justify-between pb-3 border-b-2 border-[#4b2f7e] flex-wrap gap-2">
             <div>
               <h3 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider">Student Profile Approval Queue</h3>
-              <p className="text-xs text-[#a08fd4]">Verify registered student information before granting full portal access</p>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -2951,8 +2902,7 @@ export const AdminPanel: React.FC = () => {
         <div className="border-2 border-[#4b2f7e]/80 bg-[#150c28]/60 backdrop-blur-xl p-5 sm:p-6 shadow-[6px_6px_0_rgba(6,4,16,0.65)] font-mono space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b-2 border-[#4b2f7e]">
             <div>
-              <h3 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider">Student Directory & Full Profile Control</h3>
-              <p className="text-xs text-[#a08fd4]">Edit information, assign roles, tune likes, or delete accounts</p>
+              <h3 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider">Student Directory & Profiles</h3>
             </div>
 
             <div className="relative w-full sm:w-64">
@@ -3573,7 +3523,6 @@ export const AdminPanel: React.FC = () => {
         <div className="border-2 border-[#4b2f7e]/80 bg-[#150c28]/60 backdrop-blur-xl p-5 sm:p-6 shadow-[6px_6px_0_rgba(6,4,16,0.65)] font-mono space-y-6 max-w-3xl">
           <div className="pb-3 border-b-2 border-[#4b2f7e]">
             <h3 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider">System Safety & Portal Controls</h3>
-            <p className="text-xs text-[#a08fd4]">Manage developer footer credits, admin security, database backups, and data resets</p>
           </div>
 
           <div className="space-y-5">
@@ -3585,8 +3534,7 @@ export const AdminPanel: React.FC = () => {
                     <Sparkles className="w-4 h-4 text-[#1a1030]" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-[#f9c74f] uppercase tracking-wider">Developer & Contact Info (Bottom Footer)</h4>
-                    <p className="text-xs text-[#a08fd4]">Controls the text and contact links displayed at the bottom of the portal</p>
+                    <h4 className="text-sm font-bold text-[#f9c74f] uppercase tracking-wider">Developer & Contact Info</h4>
                   </div>
                 </div>
                 <span className="text-[10px] font-bold px-2 py-0.5 bg-[#2d6a4f]/40 text-[#52b788] border border-[#52b788]">
@@ -3722,7 +3670,6 @@ export const AdminPanel: React.FC = () => {
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-[#f9c74f] uppercase tracking-wider">Admin Login Credentials</h4>
-                    <p className="text-xs text-[#a08fd4]">Change your administrator username & password anytime</p>
                   </div>
                 </div>
                 <div className="text-[11px] font-bold px-2.5 py-1 bg-[#241548] text-[#f9c74f] border border-[#4b2f7e]">
@@ -3756,7 +3703,7 @@ export const AdminPanel: React.FC = () => {
                     type="text"
                     value={customUserField}
                     onChange={(e) => setCustomUserField(e.target.value)}
-                    placeholder="e.g. priyanshu or admin"
+                    placeholder="Username"
                     required
                     className="w-full px-3 py-2 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-xs font-mono text-white focus:outline-none transition-colors"
                   />
@@ -3771,7 +3718,7 @@ export const AdminPanel: React.FC = () => {
                       type={showCredPass ? 'text' : 'password'}
                       value={customPassField}
                       onChange={(e) => setCustomPassField(e.target.value)}
-                      placeholder="Enter new password"
+                      placeholder="New password"
                       required
                       className="w-full px-3 py-2 pr-9 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-xs font-mono text-white focus:outline-none transition-colors"
                     />
@@ -3801,9 +3748,6 @@ export const AdminPanel: React.FC = () => {
             {/* 3. EXPORT COMPLETE DATABASE JSON */}
             <div className="border-2 border-[#4b2f7e] bg-[#1a1030]/80 p-4 shadow-[4px_4px_0_#060410] space-y-2">
               <h4 className="text-xs font-bold text-[#f9c74f] uppercase tracking-wider">Export Complete Database (JSON)</h4>
-              <p className="text-xs text-[#a08fd4]">
-                Downloads a full snapshot of all registered students, notes, resources, circulars, and messages. Keep this before making major updates.
-              </p>
               <button
                 onClick={exportDatabaseBackup}
                 className="pixel-btn-secondary text-xs"
@@ -3817,7 +3761,6 @@ export const AdminPanel: React.FC = () => {
             <div className="border-2 border-[#4b2f7e] bg-[#1a1030]/80 p-4 shadow-[4px_4px_0_#060410] space-y-4">
               <div>
                 <h4 className="text-xs font-bold text-[#f9c74f] uppercase tracking-wider">Database & System Reset Controls</h4>
-                <p className="text-xs text-[#a08fd4]">Perform diagnostic resets or restore default batch states</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -3992,6 +3935,17 @@ export const AdminPanel: React.FC = () => {
                     className="w-full px-3 py-2 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-[#fff4d6] focus:outline-none"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-[#f4e6c8] mb-1 uppercase">🎂 Date of Birth (YYYY-MM-DD)</label>
+                <input
+                  type="date"
+                  value={editingStudent.dateOfBirth || ''}
+                  onChange={(e) => setEditingStudent({ ...editingStudent, dateOfBirth: e.target.value })}
+                  max={new Date().toISOString().slice(0, 10)}
+                  className="w-full px-3 py-2 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-[#fff4d6] focus:outline-none"
+                />
               </div>
 
               <div>

@@ -1390,10 +1390,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('Error approving student in Firestore:', err)
     );
 
+    const adminToken = localStorage.getItem('nexusit_admin_token') || '';
     fetch(`/api/students/${studentId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'APPROVED', role: assignedRole, isAdmin }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+        'x-admin-token': adminToken,
+      },
+      body: JSON.stringify({ status: 'APPROVED', role: assignedRole, isAdmin, adminToken }),
     }).catch((err) => console.error('Error approving student:', err));
   };
 
@@ -1406,10 +1411,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('Error dismissing student in Firestore:', err)
     );
 
+    const adminToken = localStorage.getItem('nexusit_admin_token') || '';
     fetch(`/api/students/${studentId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'DISMISSED' }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+        'x-admin-token': adminToken,
+      },
+      body: JSON.stringify({ status: 'DISMISSED', adminToken }),
     }).catch((err) => console.error('Error dismissing student:', err));
   };
 
@@ -1431,8 +1441,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('Error deleting student in Firestore:', err)
     );
 
+    const adminToken = localStorage.getItem('nexusit_admin_token') || '';
     fetch(`/api/students/${studentId}`, {
       method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+        'x-admin-token': adminToken,
+      },
     }).catch((err) => console.error('Error deleting student:', err));
   };
 
@@ -1461,10 +1477,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('Error updating student in Firestore:', err)
     );
 
+    const adminToken = localStorage.getItem('nexusit_admin_token') || '';
     fetch(`/api/students/${studentId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+        'x-admin-token': adminToken,
+      },
+      body: JSON.stringify({ ...updates, adminToken }),
     }).catch((err) => console.error('Error updating student on server:', err));
   };
 
@@ -1475,45 +1496,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [isAdminUnlocked, setIsAdminUnlocked] = useState<boolean>(false);
 
-  // Validate admin session with server upon mount (invalidates tampered local sessions)
+  // Validate admin session with server upon mount & continuously verify session validity
   useEffect(() => {
-    const token = localStorage.getItem('nexusit_admin_token');
-    if (!token) {
-      setIsAdminUnlocked(false);
-      localStorage.removeItem('nexusit_admin_unlocked');
-      sessionStorage.removeItem('nexusit_admin_unlocked');
-      return;
-    }
+    const verifyCurrentSession = () => {
+      const token = localStorage.getItem('nexusit_admin_token');
+      if (!token) {
+        setIsAdminUnlocked(false);
+        localStorage.removeItem('nexusit_admin_unlocked');
+        sessionStorage.removeItem('nexusit_admin_unlocked');
+        return;
+      }
 
-    fetch('/api/admin/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token }),
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.valid) {
-          setIsAdminUnlocked(true);
-          if (data.username) {
-            setAdminCredentialsState((prev) => ({ ...prev, username: data.username }));
+      fetch('/api/admin/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'x-admin-token': token,
+        },
+        body: JSON.stringify({ token }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.valid) {
+            setIsAdminUnlocked(true);
+            if (data.username) {
+              setAdminCredentialsState((prev) => ({ ...prev, username: data.username }));
+            }
+          } else {
+            setIsAdminUnlocked(false);
+            localStorage.removeItem('nexusit_admin_token');
+            localStorage.removeItem('nexusit_admin_unlocked');
+            sessionStorage.removeItem('nexusit_admin_unlocked');
           }
-        } else if (token.endsWith('_local')) {
-          // Keep verified local session for owner
-          setIsAdminUnlocked(true);
-        } else {
+        })
+        .catch(() => {
+          // If network error, do not grant access
           setIsAdminUnlocked(false);
           localStorage.removeItem('nexusit_admin_token');
           localStorage.removeItem('nexusit_admin_unlocked');
           sessionStorage.removeItem('nexusit_admin_unlocked');
-        }
-      })
-      .catch(() => {
-        if (token.endsWith('_local')) {
-          setIsAdminUnlocked(true);
-        } else {
-          setIsAdminUnlocked(false);
-        }
-      });
+        });
+    };
+
+    verifyCurrentSession();
+    const interval = setInterval(verifyCurrentSession, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const unlockAdmin = async (
@@ -1525,7 +1553,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (!cleanId || !cleanCode) {
       soundEngine.playDislike();
-      return { success: false, message: 'Please provide both username and access code.' };
+      return { success: false, message: 'Please provide both username and password.' };
     }
 
     try {
@@ -1569,42 +1597,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { success: false, message: data.message || 'Incorrect credentials. Access denied.' };
       }
     } catch {
-      // Offline / Network fallback for authorized platform owner Priyanshu Gupta
-      const u = cleanId.toLowerCase();
-      const isOwner =
-        u === 'priyanshu' ||
-        u === 'priyanshu gupta' ||
-        u === 'guptapriyanshu0101@gmail.com';
-      const isOwnerPass =
-        cleanCode === 'Priyanshu@Admin#2026' ||
-        cleanCode === 'priyanshu#it2026' ||
-        cleanCode === 'HACKER928';
-
-      if (isOwner && isOwnerPass) {
-        setIsAdminUnlocked(true);
-        const fallbackToken = `adm_${Date.now()}_local`;
-        try {
-          localStorage.setItem('nexusit_admin_token', fallbackToken);
-          localStorage.setItem('nexusit_admin_unlocked', 'true');
-          sessionStorage.setItem('nexusit_admin_unlocked', 'true');
-        } catch {}
-        setAdminCredentialsState((prev) => ({ ...prev, username: cleanId }));
-
-        const existingDevAdmin = students.find(
-          (s) =>
-            s.role === 'DEVELOPER_ADMIN' ||
-            (s.isAdmin === true && s.status === 'APPROVED')
-        );
-        if (existingDevAdmin) {
-          setCurrentUser(existingDevAdmin);
-          currentUserRef.current = existingDevAdmin;
-        }
-        soundEngine.playSuccess();
-        return { success: true, message: 'Admin verified and session established successfully.' };
-      }
-
       soundEngine.playDislike();
-      return { success: false, message: 'Incorrect credentials. Access denied.' };
+      return { success: false, message: 'Authentication server unreachable or network error. Please verify server connection.' };
     }
   };
 

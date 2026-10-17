@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { sortAndFilterStudents } from '../utils/studentUtils';
 import { StudentProfile } from '../types';
 import { soundEngine } from '../utils/soundEffects';
+import { isTodayBirthday, formatBirthdayDate } from '../utils/birthdayUtils';
 import {
   Search,
   Users,
@@ -335,6 +336,15 @@ export const BrowseMembers: React.FC = () => {
                       }}
                     />
                   </div>
+
+                  {/* Birthday Celebration Badge */}
+                  {isTodayBirthday(student.dateOfBirth) && (
+                    <div className="mb-2 inline-flex items-center gap-1 px-2.5 py-0.5 bg-gradient-to-r from-[#f47b5c] via-[#f9c74f] to-[#f47b5c] text-[#1a1030] border border-[#f4e6c8] font-mono text-[9px] font-black uppercase shadow-[2px_2px_0_#060410] animate-pulse">
+                      <span>🎂</span>
+                      <span>BIRTHDAY TODAY!</span>
+                      <span>🎉</span>
+                    </div>
+                  )}
 
                   {/* Developer / Admin Mention */}
                   {(student.role === 'DEVELOPER_ADMIN' || student.isDeveloper) && (

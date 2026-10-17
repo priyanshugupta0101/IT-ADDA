@@ -30,6 +30,7 @@
         "likedBy": { "type": "array" },
         "dislikedBy": { "type": "array" },
         "createdAt": { "type": "string" },
+        "birthDate": { "type": "string" },
         "isAdmin": { "type": "boolean" },
         "isDeveloper": { "type": "boolean" }
       },

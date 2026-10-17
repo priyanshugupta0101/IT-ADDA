@@ -115,17 +115,10 @@ export function initAntiTamperProtection(): () => void {
     }
   };
 
-  // 4. Console Protection: Silence object dumps in console and print security badge
-  try {
-    const bannerStyle =
-      'color: #f47b5c; font-size: 15px; font-weight: bold; background: #150c28; padding: 6px 14px; border-radius: 4px; border: 2px solid #f9c74f;';
-    console.log(
-      '%c🔒 IT ADDA PLATFORM SECURITY: Server-side cryptographic authorization active.',
-      bannerStyle
-    );
-  } catch {}
+  // 4. Keyboard & Context menu listeners
+  let clearTimer: any = null;
 
-  // 5. Attach event listeners at capturing phase
+  // 6. Attach event listeners at capturing phase
   window.addEventListener('contextmenu', handleContextMenu, { capture: true });
   document.addEventListener('contextmenu', handleContextMenu, { capture: true });
   window.addEventListener('keydown', handleKeyDown, { capture: true });
@@ -134,6 +127,7 @@ export function initAntiTamperProtection(): () => void {
   document.addEventListener('dragstart', handleDragStart, { capture: true });
 
   return () => {
+    clearInterval(clearTimer);
     window.removeEventListener('contextmenu', handleContextMenu, { capture: true });
     document.removeEventListener('contextmenu', handleContextMenu, { capture: true });
     window.removeEventListener('keydown', handleKeyDown, { capture: true });

@@ -19,7 +19,9 @@ import {
   CreditCard,
   FileText,
   LogOut,
+  Cake,
 } from 'lucide-react';
+import { calculateAge, getZodiacSign, isTodayBirthday } from '../utils/birthdayUtils';
 
 export const PersonalDetailsModal: React.FC = () => {
   const {
@@ -51,6 +53,7 @@ export const PersonalDetailsModal: React.FC = () => {
   const [instagramHandle, setInstagramHandle] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [idCardTheme, setIdCardTheme] = useState<IdCardTheme>('spidey');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [previewScale, setPreviewScale] = useState(0.42);
@@ -73,6 +76,7 @@ export const PersonalDetailsModal: React.FC = () => {
       setInstagramHandle(currentUser.instagramHandle || '');
       setLinkedinUrl(currentUser.linkedinUrl || '');
       setPhotoUrl(currentUser.photoUrl || '');
+      setDateOfBirth(currentUser.dateOfBirth || '');
       setIdCardTheme(currentUser.idCardTheme || (currentUser.gender === 'Girls' ? 'barbie' : 'spidey'));
     }
   }, [currentUser, isPersonalDetailsOpen]);
@@ -126,6 +130,7 @@ export const PersonalDetailsModal: React.FC = () => {
       instagramHandle: instagramHandle.trim(),
       linkedinUrl: linkedinUrl.trim(),
       photoUrl: photoUrl.trim() || currentUser.photoUrl,
+      dateOfBirth: dateOfBirth.trim() || undefined,
       idCardTheme,
     };
 
@@ -159,11 +164,12 @@ export const PersonalDetailsModal: React.FC = () => {
     instagramHandle: instagramHandle || currentUser.instagramHandle,
     linkedinUrl: linkedinUrl || currentUser.linkedinUrl,
     photoUrl: photoUrl || currentUser.photoUrl,
+    dateOfBirth: dateOfBirth || currentUser.dateOfBirth,
     idCardTheme,
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[#060410]/75 backdrop-blur-md flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 overflow-y-auto font-mono">
+    <div className="fixed inset-0 z-[100] bg-[#060410]/75 backdrop-blur-md flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 overflow-y-auto scroll-smooth font-mono">
       <div className="w-full max-w-4xl bg-[#150c28]/75 backdrop-blur-2xl border-2 border-[#f4e6c8]/90 shadow-[8px_8px_0_rgba(6,4,16,0.7)] flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90dvh] relative my-auto overflow-hidden">
         {/* Header */}
         <div className="sticky top-0 z-30 shrink-0 flex items-center justify-between border-b-2 border-[#4b2f7e]/80 bg-[#1a1030]/80 backdrop-blur-md px-6 py-4">
@@ -192,7 +198,7 @@ export const PersonalDetailsModal: React.FC = () => {
         </div>
 
         {/* Scrollable Body */}
-        <div className="overflow-y-auto flex-1 p-6 space-y-6 bg-[#0e0822]/60 backdrop-blur-xl text-[#f4e6c8]">
+        <div className="overflow-y-auto flex-1 p-6 space-y-6 bg-[#0e0822]/60 backdrop-blur-xl text-[#f4e6c8] scroll-smooth">
           {saveSuccess ? (
             <div className="py-16 text-center space-y-3">
               <div className="w-12 h-12 bg-[#241548] border-2 border-[#f4e6c8] text-[#f9c74f] flex items-center justify-center mx-auto shadow-[3px_3px_0_#060410]">
@@ -417,6 +423,45 @@ export const PersonalDetailsModal: React.FC = () => {
                       <option value="BATCH_3" className="bg-[#1a1030]">Batch 3 (Roll 44 – 63)</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Date of Birth (DOB) Field */}
+                <div className="pt-3 border-t-2 border-[#4b2f7e]/60">
+                  <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+                    <label className="block text-xs font-bold text-[#f9c74f] uppercase flex items-center gap-1.5">
+                      <Cake className="w-3.5 h-3.5 text-[#f47b5c]" />
+                      <span>Date of Birth (DOB)</span>
+                    </label>
+                    {dateOfBirth && (
+                      <div className="flex items-center gap-2 text-[11px] font-mono">
+                        {calculateAge(dateOfBirth) !== null && (
+                          <span className="text-[#f9c74f] font-bold">
+                            Age: {calculateAge(dateOfBirth)}
+                          </span>
+                        )}
+                        {getZodiacSign(dateOfBirth) && (
+                          <span className="text-[#a08fd4] bg-[#241548] px-2 py-0.5 rounded border border-[#4b2f7e]">
+                            {getZodiacSign(dateOfBirth)?.emoji} {getZodiacSign(dateOfBirth)?.sign}
+                          </span>
+                        )}
+                        {isTodayBirthday(dateOfBirth) && (
+                          <span className="text-[#1a1030] bg-[#f9c74f] font-extrabold px-2 py-0.5 rounded text-[10px] animate-pulse">
+                            🎉 TODAY IS YOUR BIRTHDAY!
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    type="date"
+                    value={dateOfBirth}
+                    onChange={(e) => setDateOfBirth(e.target.value)}
+                    max={new Date().toISOString().slice(0, 10)}
+                    className="w-full px-3.5 py-2 bg-[#1a1030] border-2 border-[#4b2f7e] text-xs font-mono text-[#f4e6c8] focus:border-[#f9c74f] outline-none shadow-[2px_2px_0_#060410]"
+                  />
+                  <p className="text-[10px] text-[#a08fd4] mt-1">
+                    Your birthday triggers a campus-wide celebration marquee banner and confetti effects across the website on your special day!
+                  </p>
                 </div>
               </div>
 

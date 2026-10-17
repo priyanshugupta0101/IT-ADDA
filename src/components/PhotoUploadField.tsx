@@ -152,19 +152,16 @@ export const PhotoUploadField: React.FC<PhotoUploadFieldProps> = ({
           ) : hasPhoto ? (
             <div className="space-y-1">
               <p className="text-xs font-semibold text-stone-900 truncate">
-                {fileName || 'Custom Student Photo'}
+                {fileName || 'Photo uploaded'}
               </p>
-              <p className="text-[11px] text-stone-500">
-                Click anywhere to choose a different photo
-              </p>
-              <div className="flex items-center justify-center sm:justify-start gap-2 pt-1">
+              <div className="flex items-center justify-center sm:justify-start gap-2 pt-0.5">
                 <button
                   type="button"
                   onClick={handleTriggerClick}
                   className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-amber-800 bg-amber-100/70 hover:bg-amber-100 rounded-md border border-amber-200/80 transition-colors cursor-pointer"
                 >
                   <Upload className="w-3 h-3" />
-                  <span>Replace Photo</span>
+                  <span>Change</span>
                 </button>
                 <button
                   type="button"
@@ -177,16 +174,17 @@ export const PhotoUploadField: React.FC<PhotoUploadFieldProps> = ({
               </div>
             </div>
           ) : (
-            <div className="space-y-1">
+            <div>
               <p className="text-xs font-semibold text-stone-900">
                 <span className="text-amber-800 underline decoration-amber-400 font-bold">
-                  Click to upload
-                </span>{' '}
-                or drag & drop your photo
+                  Upload photo
+                </span>
               </p>
-              <p className="text-[11px] text-stone-500 font-medium">
-                {helperText}
-              </p>
+              {helperText ? (
+                <p className="text-[11px] text-stone-500 font-medium mt-0.5">
+                  {helperText}
+                </p>
+              ) : null}
             </div>
           )}
         </div>

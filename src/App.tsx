@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
+import { BirthdayCelebrationBanner } from './components/BirthdayCelebrationBanner';
 import { TopLeaderboard } from './components/TopLeaderboard';
 import { BrowseMembers } from './components/BrowseMembers';
 import { NotesSection } from './components/NotesSection';
@@ -131,6 +132,14 @@ function MainContent() {
         scanlines={0.32}
         speed={1.00}
       />
+
+      {/* Platform-Wide Birthday Announcement Marquee & Celebration Banner */}
+      <div className="relative z-50">
+        <BirthdayCelebrationBanner
+          onOpenCard={(student) => setViewingStudent(student)}
+          onNavigateToTab={(tab) => setActiveTab(tab as any)}
+        />
+      </div>
 
       {/* Top Bar Navigation */}
       <div className="relative z-40">

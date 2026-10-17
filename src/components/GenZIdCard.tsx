@@ -24,7 +24,16 @@ import {
   Edit3,
   Check,
   Share2,
+  Cake,
+  PartyPopper,
 } from 'lucide-react';
+import {
+  isTodayBirthday,
+  formatBirthdayDate,
+  calculateAge,
+  getZodiacSign,
+  triggerBirthdayCelebration,
+} from '../utils/birthdayUtils';
 
 interface GenZIdCardProps {
   student: StudentProfile;
@@ -238,6 +247,15 @@ export const GenZIdCard: React.FC<GenZIdCardProps> = ({
                   clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))',
                 }}
               >
+                {/* Birthday Ribbon over Photo */}
+                {isTodayBirthday(student.dateOfBirth) && (
+                  <div className="absolute top-2 left-2 right-2 z-20 bg-gradient-to-r from-[#f47b5c] via-[#f9c74f] to-[#f47b5c] text-[#1a1030] border-2 border-black px-2 py-1 text-center font-mono font-black text-[10px] shadow-[2px_2px_0px_#000] flex items-center justify-center gap-1.5 animate-pulse">
+                    <span>🎂</span>
+                    <span>TODAY&apos;S BIRTHDAY STAR!</span>
+                    <span>🎉</span>
+                  </div>
+                )}
+
                 {!imgError && (highResPhotoUrl || student.photoUrl) ? (
                   <img
                     src={highResPhotoUrl || student.photoUrl}
@@ -386,20 +404,41 @@ export const GenZIdCard: React.FC<GenZIdCardProps> = ({
               </div>
             </div>
 
-            {/* Row 3: YEAR */}
+            {/* Row 3: YEAR & BIRTHDAY */}
             <div className="px-4 py-2.5 flex items-center gap-3 shrink-0">
               <div
                 className={`w-8 h-8 ${themeConfig.iconBoxBg} ${themeConfig.iconBoxColor} border-2 border-black flex items-center justify-center shrink-0 shadow-[1.5px_1.5px_0px_#000]`}
               >
                 <Calendar className="w-4 h-4 stroke-[2.5]" />
               </div>
-              <div className="min-w-0 flex-1">
-                <span className="text-[9px] font-black uppercase tracking-widest opacity-70 block">
-                  YEAR
-                </span>
-                <span className="text-xs font-black uppercase tracking-tight block">
-                  {student.year}
-                </span>
+              <div className="min-w-0 flex-1 grid grid-cols-2 gap-2">
+                <div>
+                  <span className="text-[9px] font-black uppercase tracking-widest opacity-70 block">
+                    YEAR
+                  </span>
+                  <span className="text-xs font-black uppercase tracking-tight block">
+                    {student.year}
+                  </span>
+                </div>
+                {student.dateOfBirth ? (
+                  <div>
+                    <span className="text-[9px] font-black uppercase tracking-widest opacity-70 block">
+                      BIRTHDAY
+                    </span>
+                    <span className="text-xs font-black uppercase tracking-tight block truncate">
+                      🎂 {formatBirthdayDate(student.dateOfBirth)} {getZodiacSign(student.dateOfBirth)?.emoji || ''}
+                    </span>
+                  </div>
+                ) : (
+                  <div>
+                    <span className="text-[9px] font-black uppercase tracking-widest opacity-70 block">
+                      STATUS
+                    </span>
+                    <span className="text-xs font-black uppercase tracking-tight block text-emerald-600 dark:text-emerald-400">
+                      VERIFIED
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 

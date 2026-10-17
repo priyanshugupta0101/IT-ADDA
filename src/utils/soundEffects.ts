@@ -678,6 +678,54 @@ class SoundEngine {
       });
     } catch {}
   }
+
+  /**
+   * Celebratory Birthday Fanfare:
+   * Melodic chimes playing the iconic "Happy Birthday to you" motif with joyful synth bells.
+   */
+  public playBirthdayFanfare() {
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+
+      // Note frequencies (Hz) for "Happy Birthday to You" opening
+      // G4, G4, A4, G4, C5, B4 | G4, G4, A4, G4, D5, C5
+      const motif: [number, number, number][] = [
+        [392.00, 0.00, 0.18],  // G4
+        [392.00, 0.22, 0.18],  // G4
+        [440.00, 0.44, 0.32],  // A4
+        [392.00, 0.80, 0.32],  // G4
+        [523.25, 1.15, 0.36],  // C5
+        [493.88, 1.55, 0.55],  // B4
+
+        [392.00, 2.20, 0.18],  // G4
+        [392.00, 2.42, 0.18],  // G4
+        [440.00, 2.64, 0.32],  // A4
+        [392.00, 3.00, 0.32],  // G4
+        [587.33, 3.35, 0.36],  // D5
+        [523.25, 3.75, 0.65],  // C5
+      ];
+
+      motif.forEach(([freq, delay, dur]) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'triangle'; // warm cheerful bell tone
+        osc.frequency.setValueAtTime(freq, now + delay);
+
+        gain.gain.setValueAtTime(0, now + delay);
+        gain.gain.linearRampToValueAtTime(0.09, now + delay + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + dur);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now + delay);
+        osc.stop(now + delay + dur + 0.05);
+      });
+    } catch {}
+  }
 }
 
 export const soundEngine = new SoundEngine();

@@ -49,6 +49,7 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
   const [techInterest, setTechInterest] = useState('');
   const [gender, setGender] = useState<GenderType>('Boys');
   const [photoUrl, setPhotoUrl] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [formError, setFormError] = useState('');
 
   // Sign In State
@@ -118,6 +119,7 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
         phoneNumber: phoneNumber.trim(),
         email: email.trim(),
         password: password.trim(),
+        dateOfBirth: dateOfBirth ? dateOfBirth.trim() : undefined,
         profileTag: profileTag.trim(),
         description: description.trim(),
         linkedinUrl: linkedinUrl.trim(),
@@ -165,7 +167,7 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#060410]/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-[#060410]/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto scroll-smooth">
       <div className="w-full max-w-lg bg-[#1a1030]/75 backdrop-blur-2xl rounded-none sm:rounded-md border-2 border-[#f4e6c8]/90 shadow-[8px_8px_0_rgba(6,4,16,0.7)] overflow-hidden flex flex-col max-h-[92vh] my-auto font-mono text-white">
         {/* Modal Top Header */}
         <div className="flex items-center justify-between border-b-2 border-[#4b2f7e]/80 bg-[#150c28]/80 backdrop-blur-md px-6 py-4">
@@ -175,11 +177,8 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
             </div>
             <div>
               <h2 className="text-base font-bold text-[#f9c74f] tracking-wider uppercase font-mono">
-                {activeTab === 'REGISTER' ? 'Student Registration' : 'Student Account Log In'}
+                {activeTab === 'REGISTER' ? 'Register' : 'Log In'}
               </h2>
-              <p className="text-xs text-[#a08fd4] font-mono">
-                IT Adda · 1st Year Information Technology Portal
-              </p>
             </div>
           </div>
           <button
@@ -207,7 +206,7 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
                   : 'bg-[#241548] text-[#b9a7e8] hover:text-white'
               }`}
             >
-              New Registration
+              Register
             </button>
             <button
               type="button"
@@ -222,13 +221,13 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
                   : 'bg-[#241548] text-[#b9a7e8] hover:text-white'
               }`}
             >
-              Student Log In
+              Log In
             </button>
           </div>
         </div>
 
         {/* Body Content */}
-        <div className="overflow-y-auto flex-1 p-6 bg-[#0e0822]/65 backdrop-blur-xl text-[#f4e6c8]">
+        <div className="overflow-y-auto flex-1 p-6 bg-[#0e0822]/65 backdrop-blur-xl text-[#f4e6c8] scroll-smooth">
           {submittedStatus ? (
             <div className="py-8 text-center space-y-4">
               <div className="w-12 h-12 bg-[#241548] border-2 border-[#f4e6c8] text-[#f9c74f] flex items-center justify-center mx-auto shadow-[3px_3px_0_#060410]">
@@ -237,10 +236,10 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
 
               <div>
                 <h3 className="text-base font-bold uppercase tracking-wider text-[#f9c74f]">
-                  Profile Submitted for Verification
+                  Registration Submitted
                 </h3>
-                <p className="text-xs text-[#a08fd4] max-w-sm mx-auto mt-1 leading-relaxed">
-                  Your registration has been forwarded to the Class Administrator for confirmation. Once approved, you can log in using your <strong>Phone Number or Roll Number</strong> with your chosen password.
+                <p className="text-xs text-[#a08fd4] max-w-sm mx-auto mt-1">
+                  Submitted for verification. You can log in once approved by the administrator.
                 </p>
               </div>
 
@@ -249,11 +248,8 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
                   onClick={handleClose}
                   className="pixel-btn text-xs py-2 px-6"
                 >
-                  Explore the Platform
+                  Continue
                 </button>
-                <p className="text-[11px] text-[#f47b5c] font-mono tracking-wide">
-                  Until admin approves your application
-                </p>
               </div>
             </div>
           ) : activeTab === 'REGISTER' ? (
@@ -271,20 +267,19 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
                 value={photoUrl}
                 onChange={(newUrl) => setPhotoUrl(newUrl)}
                 label="Profile Photo"
-                helperText="Upload your portrait photo directly from device (JPG, PNG, WebP)"
               />
 
               {/* Name & Roll Number */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-[#f4e6c8] mb-1 uppercase">
-                    Full Name *
+                    Full Name
                   </label>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Aryan Deshmukh"
+                    placeholder="Full name"
                     required
                     className="w-full px-3 py-2 bg-[#1a1030] border-2 border-[#4b2f7e] text-xs font-mono text-[#f4e6c8] placeholder-[#a08fd4]/60 focus:border-[#f9c74f] outline-none shadow-[2px_2px_0_#060410]"
                   />
@@ -292,7 +287,7 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
 
                 <div>
                   <label className="block text-xs font-bold text-[#f4e6c8] mb-1 uppercase">
-                    Roll Number (1–63) *
+                    Roll Number (1–63)
                   </label>
                   <input
                     type="number"
@@ -300,7 +295,7 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
                     max="63"
                     value={rollNumber}
                     onChange={(e) => setRollNumber(e.target.value)}
-                    placeholder="e.g. 15"
+                    placeholder="Roll number"
                     required
                     className="w-full px-3 py-2 bg-[#1a1030] border-2 border-[#4b2f7e] text-xs font-mono text-[#f4e6c8] placeholder-[#a08fd4]/60 focus:border-[#f9c74f] outline-none shadow-[2px_2px_0_#060410]"
                   />
@@ -311,7 +306,7 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-[#f4e6c8] mb-1 uppercase">
-                    Gender *
+                    Gender
                   </label>
                   <select
                     value={gender}
@@ -325,109 +320,110 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
 
                 <div>
                   <label className="block text-xs font-bold text-[#f4e6c8] mb-1 uppercase">
-                    Headline / Profile Tag *
+                    Headline
                   </label>
                   <input
                     type="text"
                     value={profileTag}
                     onChange={(e) => setProfileTag(e.target.value)}
-                    placeholder="e.g. Full-Stack Dev, ML Researcher"
+                    placeholder="Headline or interest"
                     required
                     className="w-full px-3 py-2 bg-[#1a1030] border-2 border-[#4b2f7e] text-xs font-mono text-[#f4e6c8] placeholder-[#a08fd4]/60 focus:border-[#f9c74f] outline-none shadow-[2px_2px_0_#060410]"
                   />
                 </div>
+              </div>
+
+              {/* Date of Birth */}
+              <div>
+                <label className="block text-xs font-bold text-[#f4e6c8] mb-1 uppercase">
+                  Date of Birth
+                </label>
+                <input
+                  type="date"
+                  value={dateOfBirth}
+                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  max={new Date().toISOString().slice(0, 10)}
+                  className="w-full px-3 py-2 bg-[#1a1030] border-2 border-[#4b2f7e] text-xs font-mono text-[#f4e6c8] focus:border-[#f9c74f] outline-none shadow-[2px_2px_0_#060410]"
+                />
               </div>
 
               {/* Phone & Email */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-[#f4e6c8] mb-1 uppercase">
-                    Phone Number (Login Identifier) *
+                    Phone Number
                   </label>
                   <input
                     type="tel"
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="e.g. 9823456789"
+                    placeholder="Phone number"
                     required
                     className="w-full px-3 py-2 bg-[#1a1030] border-2 border-[#4b2f7e] text-xs font-mono text-[#f4e6c8] placeholder-[#a08fd4]/60 focus:border-[#f9c74f] outline-none shadow-[2px_2px_0_#060410]"
                   />
-                  <span className="text-[10px] text-[#a08fd4] mt-0.5 block">
-                    Used to log in alongside your Roll Number
-                  </span>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-[#f4e6c8] mb-1 uppercase">
-                    College Email *
+                    Email
                   </label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="student@college.edu"
+                    placeholder="Email"
                     required
                     className="w-full px-3 py-2 bg-[#1a1030] border-2 border-[#4b2f7e] text-xs font-mono text-[#f4e6c8] placeholder-[#a08fd4]/60 focus:border-[#f9c74f] outline-none shadow-[2px_2px_0_#060410]"
                   />
                 </div>
               </div>
 
-              {/* Password Setup Section */}
-              <div className="p-3.5 bg-[#150c28] border-2 border-[#4b2f7e] space-y-3 shadow-[2px_2px_0_#060410]">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#f9c74f] uppercase tracking-wider">
-                  <KeyRound className="w-4 h-4 text-[#f47b5c]" />
-                  <span>Create Account Password *</span>
-                </div>
-                <p className="text-[11px] text-[#a08fd4] leading-normal">
-                  Set the password you will use when logging in with your Phone Number or Roll Number.
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-[#f4e6c8] mb-1 uppercase">
-                      Password *
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="At least 4 characters"
-                        required
-                        className="w-full pl-3 pr-9 py-2 bg-[#1a1030] border-2 border-[#4b2f7e] text-xs font-mono text-[#f4e6c8] placeholder-[#a08fd4]/60 focus:border-[#f9c74f] outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#a08fd4] hover:text-[#f4e6c8] cursor-pointer"
-                        title={showPassword ? 'Hide password' : 'Show password'}
-                      >
-                        {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
+              {/* Password & Confirm Password */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-[#f4e6c8] mb-1 uppercase">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Password"
+                      required
+                      className="w-full pl-3 pr-9 py-2 bg-[#1a1030] border-2 border-[#4b2f7e] text-xs font-mono text-[#f4e6c8] placeholder-[#a08fd4]/60 focus:border-[#f9c74f] outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#a08fd4] hover:text-[#f4e6c8] cursor-pointer"
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
                   </div>
+                </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-[#f4e6c8] mb-1 uppercase">
-                      Confirm Password *
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Re-enter password"
-                        required
-                        className="w-full pl-3 pr-9 py-2 bg-[#1a1030] border-2 border-[#4b2f7e] text-xs font-mono text-[#f4e6c8] placeholder-[#a08fd4]/60 focus:border-[#f9c74f] outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#a08fd4] hover:text-[#f4e6c8] cursor-pointer"
-                      >
-                        {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#f4e6c8] mb-1 uppercase">
+                    Confirm Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm password"
+                      required
+                      className="w-full pl-3 pr-9 py-2 bg-[#1a1030] border-2 border-[#4b2f7e] text-xs font-mono text-[#f4e6c8] placeholder-[#a08fd4]/60 focus:border-[#f9c74f] outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#a08fd4] hover:text-[#f4e6c8] cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -436,20 +432,20 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-[#f4e6c8] mb-1 uppercase">
-                    LinkedIn URL
+                    LinkedIn
                   </label>
                   <input
                     type="url"
                     value={linkedinUrl}
                     onChange={(e) => setLinkedinUrl(e.target.value)}
-                    placeholder="https://linkedin.com/in/username"
+                    placeholder="LinkedIn URL"
                     className="w-full px-3 py-2 bg-[#1a1030] border-2 border-[#4b2f7e] text-xs font-mono text-[#f4e6c8] placeholder-[#a08fd4]/60 focus:border-[#f9c74f] outline-none shadow-[2px_2px_0_#060410]"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-[#f4e6c8] mb-1 uppercase">
-                    Instagram Handle
+                    Instagram
                   </label>
                   <input
                     type="text"
@@ -464,13 +460,13 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
               {/* Technical Skills */}
               <div>
                 <label className="block text-xs font-bold text-[#f4e6c8] mb-1 uppercase">
-                  Skills / Tech Interests
+                  Skills
                 </label>
                 <input
                   type="text"
                   value={techInterest}
                   onChange={(e) => setTechInterest(e.target.value)}
-                  placeholder="Python, C++, Web Dev, IoT"
+                  placeholder="e.g. React, Python, C++"
                   className="w-full px-3 py-2 bg-[#1a1030] border-2 border-[#4b2f7e] text-xs font-mono text-[#f4e6c8] placeholder-[#a08fd4]/60 focus:border-[#f9c74f] outline-none shadow-[2px_2px_0_#060410]"
                 />
               </div>
@@ -478,13 +474,13 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
               {/* Bio */}
               <div>
                 <label className="block text-xs font-bold text-[#f4e6c8] mb-1 uppercase">
-                  Bio / About Me
+                  Bio
                 </label>
                 <textarea
                   rows={2}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Share a few words about your interests..."
+                  placeholder="Short bio"
                   className="w-full px-3 py-2 bg-[#1a1030] border-2 border-[#4b2f7e] text-xs font-mono text-[#f4e6c8] placeholder-[#a08fd4]/60 focus:border-[#f9c74f] outline-none shadow-[2px_2px_0_#060410]"
                 />
               </div>
@@ -515,7 +511,7 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
               </div>
             </form>
           ) : (
-            /* STUDENT LOG IN FORM - STRICT PHONE / ROLL NUMBER + PASSWORD ONLY */
+            /* STUDENT LOG IN FORM */
             <form onSubmit={handleSignInSubmit} className="space-y-4">
               {formError && (
                 <div className="p-3 bg-[#d34c53]/20 border-2 border-[#d34c53] text-[#fff4d6] text-xs font-mono font-medium flex items-center gap-2">
@@ -525,28 +521,17 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
               )}
 
               <div className="p-5 bg-[#150c28] border-2 border-[#4b2f7e] space-y-4 shadow-[4px_4px_0_rgba(6,4,16,0.7)]">
-                <div className="border-b-2 border-[#4b2f7e] pb-3">
-                  <h3 className="text-sm font-bold text-[#f9c74f] font-mono flex items-center gap-2 uppercase tracking-wider">
-                    <ShieldCheck className="w-4 h-4 text-[#f47b5c]" />
-                    <span>Secure Student Authentication</span>
-                  </h3>
-                  <p className="text-xs text-[#a08fd4] mt-0.5 font-mono">
-                    Log in using your registered Phone Number or Roll Number and your account password.
-                  </p>
-                </div>
-
-                {/* Identifier: Phone Number or Roll Number Only */}
+                {/* Identifier */}
                 <div>
-                  <label className="block text-xs font-mono font-bold text-[#f4e6c8] mb-1.5 flex items-center justify-between">
-                    <span>Phone Number or Roll Number *</span>
-                    <span className="text-[10px] text-[#a08fd4] font-normal">Roll or Phone</span>
+                  <label className="block text-xs font-mono font-bold text-[#f4e6c8] mb-1.5 uppercase">
+                    Roll Number or Phone
                   </label>
                   <div className="relative">
                     <input
                       type="text"
                       value={loginIdentifier}
                       onChange={(e) => setLoginIdentifier(e.target.value)}
-                      placeholder="e.g. 24 or 9823456789"
+                      placeholder="Roll number or phone"
                       required
                       autoFocus
                       className="w-full pl-9 pr-3 py-2.5 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-white placeholder:text-[#a08fd4]/70 font-mono text-xs focus:outline-none transition-colors"
@@ -555,23 +540,19 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
                       <Hash className="w-3.5 h-3.5" />
                     </div>
                   </div>
-                  <span className="text-[11px] text-[#a08fd4] mt-1 block font-mono">
-                    Enter your roll number (e.g. <strong>24</strong> or <strong>24cs024</strong>) or registered phone.
-                  </span>
                 </div>
 
-                {/* Password: Required */}
+                {/* Password */}
                 <div>
-                  <label className="block text-xs font-mono font-bold text-[#f4e6c8] mb-1.5 flex items-center justify-between">
-                    <span>Account Password *</span>
-                    <span className="text-[10px] text-[#a08fd4] font-normal">Password set at registration</span>
+                  <label className="block text-xs font-mono font-bold text-[#f4e6c8] mb-1.5 uppercase">
+                    Password
                   </label>
                   <div className="relative">
                     <input
                       type={showLoginPassword ? 'text' : 'password'}
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
-                      placeholder="Enter your account password"
+                      placeholder="Password"
                       required
                       className="w-full pl-9 pr-10 py-2.5 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-white placeholder:text-[#a08fd4]/70 font-mono text-xs focus:outline-none transition-colors"
                     />
@@ -594,22 +575,22 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
                   className="pixel-btn w-full text-xs font-mono font-bold"
                 >
                   <LogIn className="w-4 h-4 text-[#1a1030]" />
-                  <span>▶ Log In to Account</span>
+                  <span>Log In</span>
                 </button>
               </div>
 
               <div className="text-center pt-2">
-                <p className="text-xs text-stone-500">
-                  Don&apos;t have an account yet?{' '}
+                <p className="text-xs text-[#a08fd4]">
+                  Don&apos;t have an account?{' '}
                   <button
                     type="button"
                     onClick={() => {
                       setActiveTab('REGISTER');
                       setFormError('');
                     }}
-                    className="font-semibold text-amber-800 hover:text-amber-950 underline cursor-pointer"
+                    className="font-bold text-[#f9c74f] hover:underline cursor-pointer"
                   >
-                    Register your profile
+                    Register
                   </button>
                 </p>
               </div>

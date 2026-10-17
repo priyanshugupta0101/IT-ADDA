@@ -49,6 +49,7 @@ export interface StudentProfile {
   streak?: number; // Consecutive active daily study streak
   lastActiveDate?: string; // YYYY-MM-DD last active check-in date
   longestStreak?: number; // Personal best peak streak record
+  dateOfBirth?: string; // YYYY-MM-DD format (used for campus birthday announcements)
 }
 
 export interface NoteFulfillment {
