@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" fill="#150c28" rx="64"/>
+  <rect x="40" y="40" width="432" height="432" fill="#241548" stroke="#f9c74f" stroke-width="20" rx="40"/>
+  <!-- "I" -->
+  <rect x="140" y="150" width="60" height="212" fill="#f9c74f" rx="8"/>
+  <!-- "T" -->
+  <rect x="230" y="150" width="160" height="55" fill="#f47b5c" rx="8"/>
+  <rect x="282" y="200" width="56" height="162" fill="#f47b5c" rx="8"/>
+  <!-- Sparkle dot -->
+  <rect x="380" y="90" width="24" height="24" fill="#f9c74f" transform="rotate(45 392 102)"/>
+</svg>

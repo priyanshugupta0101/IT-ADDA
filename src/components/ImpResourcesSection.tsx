@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { ResourceItem } from '../types';
+import { smartDeriveResourceMetadata, formatBytes } from '../utils/shareTargetService';
 import {
   FolderArchive,
   Upload,
@@ -8,6 +9,12 @@ import {
   Search,
   X,
   BookOpen,
+  Share2,
+  Smartphone,
+  Sparkles,
+  Zap,
+  HelpCircle,
+  FileCheck,
 } from 'lucide-react';
 
 const CATEGORIES = [
@@ -21,13 +28,23 @@ const CATEGORIES = [
 ];
 
 export const ImpResourcesSection: React.FC = () => {
-  const { resources, uploadResource, currentUser, setIsRegisterModalOpen } = useApp();
+  const {
+    resources,
+    uploadResource,
+    currentUser,
+    setIsRegisterModalOpen,
+    triggerQuickShareWithFile,
+    setIsShareSimulatorOpen,
+  } = useApp();
 
   const [activeCategory, setActiveCategory] = useState('ALL');
   const [subjectFilter, setSubjectFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [downloadToast, setDownloadToast] = useState('');
+  const [showShareGuide, setShowShareGuide] = useState(false);
+
+  const directShareFileInputRef = useRef<HTMLInputElement>(null);
 
   // Upload Form
   const [title, setTitle] = useState('');
@@ -66,7 +83,19 @@ export const ImpResourcesSection: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) {
       setFileName(file.name);
-      setFileSize(`${(file.size / (1024 * 1024)).toFixed(1)} MB`);
+      setFileSize(formatBytes(file.size));
+      const meta = smartDeriveResourceMetadata(file.name);
+      if (!title.trim()) setTitle(meta.title);
+      if (!subject.trim()) setSubject(meta.subject);
+      setCategory(meta.category);
+    }
+  };
+
+  const handleDirectShareFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      triggerQuickShareWithFile(file);
+      e.target.value = '';
     }
   };
 
@@ -137,6 +166,92 @@ export const ImpResourcesSection: React.FC = () => {
           <Upload className="w-4 h-4" />
           <span>▶ Upload Material</span>
         </button>
+      </div>
+
+      {/* ⚡ Fast Share to IT Adda Feature Card */}
+      <div className="bg-[#1a1030]/80 backdrop-blur-xl border-2 border-[#f9c74f] p-4 sm:p-5 shadow-[6px_6px_0_#060410] relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-[#f9c74f]/10 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-2 py-0.5 bg-[#f9c74f] text-[#1a1030] text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                <Zap className="w-3 h-3 fill-current" />
+                <span>Instant Material Share</span>
+              </span>
+              <span className="text-xs font-bold text-[#f4e6c8]">
+                Share directly from WhatsApp, Telegram, or Files
+              </span>
+            </div>
+            <p className="text-[11px] sm:text-xs text-[#a08fd4] max-w-xl">
+              Found an important PDF or exam paper? Share it to <strong className="text-[#f9c74f]">IT Adda</strong> directly from your phone&apos;s share menu — it opens automatically with the file attached for 1-tap upload!
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap shrink-0">
+            {/* Direct Instant File Select */}
+            <button
+              type="button"
+              onClick={() => directShareFileInputRef.current?.click()}
+              className="pixel-btn text-xs py-2 px-3 sm:px-4 flex items-center gap-1.5 shadow-[3px_3px_0_#060410]"
+              title="Select any PDF, Word doc, or notes to auto-fill details and upload in 1 tap"
+            >
+              <Upload className="w-3.5 h-3.5 text-[#1a1030]" />
+              <span>⚡ 1-Tap Share File</span>
+            </button>
+            <input
+              ref={directShareFileInputRef}
+              type="file"
+              onChange={handleDirectShareFileSelect}
+              className="hidden"
+            />
+
+            {/* Simulator Button */}
+            <button
+              type="button"
+              onClick={() => setIsShareSimulatorOpen(true)}
+              className="pixel-btn-secondary text-xs py-2 px-3 flex items-center gap-1.5"
+              title="Test the phone share flow with sample materials"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-[#f47b5c]" />
+              <span>Test Share Sheet</span>
+            </button>
+
+            {/* How it works info */}
+            <button
+              type="button"
+              onClick={() => setShowShareGuide(!showShareGuide)}
+              className="p-2 border border-[#4b2f7e] hover:border-[#f9c74f] bg-[#241548] text-[#f4e6c8] text-xs cursor-pointer"
+              title="How does OS-level sharing work?"
+            >
+              <HelpCircle className="w-4 h-4 text-[#f9c74f]" />
+            </button>
+          </div>
+        </div>
+
+        {/* Expandable Guide */}
+        {showShareGuide && (
+          <div className="mt-3 pt-3 border-t border-[#4b2f7e] text-xs text-[#b9a7e8] space-y-2 animate-in fade-in">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-2.5 bg-[#150c28] border border-[#4b2f7e]">
+                <p className="font-bold text-[#f9c74f] text-[11px] mb-1">1. Pick Any Resource</p>
+                <p className="text-[10px] text-[#a08fd4]">On WhatsApp, Telegram, Files, or Drive, select any PDF, PPT, doc, or notes.</p>
+              </div>
+              <div className="p-2.5 bg-[#150c28] border border-[#4b2f7e]">
+                <p className="font-bold text-[#f9c74f] text-[11px] mb-1">2. Tap Share ➔ IT Adda</p>
+                <p className="text-[10px] text-[#a08fd4]">Tap &quot;Share&quot; in your app. In the share sheet, choose &quot;IT Adda&quot;.</p>
+              </div>
+              <div className="p-2.5 bg-[#150c28] border border-[#4b2f7e]">
+                <p className="font-bold text-[#f9c74f] text-[11px] mb-1">3. 1-Tap Upload</p>
+                <p className="text-[10px] text-[#a08fd4]">IT Adda opens automatically with title, category, and subject ready to publish!</p>
+              </div>
+            </div>
+            <p className="text-[10px] text-[#52b788] flex items-center gap-1">
+              <Sparkles className="w-3 h-3" />
+              <span>Works on mobile and desktop via Web Share Target standard. Add to Home Screen in Chrome/Safari to enable.</span>
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Search and Filters Bar */}

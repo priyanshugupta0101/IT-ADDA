@@ -20,6 +20,14 @@ import {
 import { getBatchFromRoll } from '../utils/studentUtils';
 import { soundEngine } from '../utils/soundEffects';
 import {
+  PendingSharedMaterial,
+  smartDeriveResourceMetadata,
+  formatBytes,
+  registerShareTargetServiceWorker,
+  getSharedMaterialFromIndexedDB,
+  getSharedMaterialFromServer,
+} from '../utils/shareTargetService';
+import {
   subscribeToStudents,
   subscribeToNoteRequests,
   subscribeToResources,
@@ -142,9 +150,16 @@ interface AppContextType {
     resourceCategory?: ResourceItem['category'];
   }) => void;
 
-  // Resources
+  // Resources & Web Share Target
   uploadResource: (resource: Omit<ResourceItem, 'id' | 'uploadedAt' | 'downloads' | 'verified'>) => void;
   deleteResource: (resourceId: string) => void;
+  pendingSharedMaterial: PendingSharedMaterial | null;
+  setPendingSharedMaterial: (material: PendingSharedMaterial | null) => void;
+  isQuickShareModalOpen: boolean;
+  setIsQuickShareModalOpen: (open: boolean) => void;
+  triggerQuickShareWithFile: (file: File) => void;
+  isShareSimulatorOpen: boolean;
+  setIsShareSimulatorOpen: (open: boolean) => void;
 
   // Notices & Announcements
   postNotice: (
@@ -245,6 +260,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return [];
     }
   });
+
+  // Web Share Target & Fast Material Sharing
+  const [pendingSharedMaterial, setPendingSharedMaterial] = useState<PendingSharedMaterial | null>(null);
+  const [isQuickShareModalOpen, setIsQuickShareModalOpen] = useState(false);
+  const [isShareSimulatorOpen, setIsShareSimulatorOpen] = useState(false);
+
+  const triggerQuickShareWithFile = (file: File) => {
+    const meta = smartDeriveResourceMetadata(file.name);
+    const material: PendingSharedMaterial = {
+      name: file.name,
+      size: file.size,
+      formattedSize: formatBytes(file.size),
+      type: file.type || 'application/pdf',
+      blob: file,
+      title: meta.title,
+      subject: meta.subject,
+      category: meta.category,
+      description: meta.description,
+      source: 'DRAG_AND_DROP',
+    };
+    setPendingSharedMaterial(material);
+    setIsQuickShareModalOpen(true);
+    soundEngine.playSuccess();
+  };
+
+  // Listen for Web Share Target incoming files (IndexedDB + URL params)
+  useEffect(() => {
+    registerShareTargetServiceWorker();
+
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const shareId = urlParams.get('share_id');
+      const isShareTarget = urlParams.get('share_target');
+
+      if (shareId) {
+        getSharedMaterialFromServer(shareId).then((material) => {
+          if (material) {
+            setPendingSharedMaterial(material);
+            setIsQuickShareModalOpen(true);
+            soundEngine.playSuccess();
+          }
+        });
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, '', cleanUrl);
+      } else if (isShareTarget) {
+        getSharedMaterialFromIndexedDB().then((material) => {
+          if (material) {
+            setPendingSharedMaterial(material);
+            setIsQuickShareModalOpen(true);
+            soundEngine.playSuccess();
+          }
+        });
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, '', cleanUrl);
+      } else {
+        getSharedMaterialFromIndexedDB().then((material) => {
+          if (material) {
+            setPendingSharedMaterial(material);
+            setIsQuickShareModalOpen(true);
+            soundEngine.playSuccess();
+          }
+        });
+      }
+    }
+  }, []);
 
   // Notices
   const [notices, setNotices] = useState<NoticeItem[]>(() => {
@@ -2571,6 +2651,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         uploadAdminNote,
         uploadResource,
         deleteResource,
+        pendingSharedMaterial,
+        setPendingSharedMaterial,
+        isQuickShareModalOpen,
+        setIsQuickShareModalOpen,
+        triggerQuickShareWithFile,
+        isShareSimulatorOpen,
+        setIsShareSimulatorOpen,
         postNotice,
         approveNotice,
         dismissNotice,

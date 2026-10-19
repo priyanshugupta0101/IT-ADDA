@@ -12,6 +12,7 @@ import {
   Volume2,
   VolumeX,
   Flame,
+  Share2,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -29,6 +30,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
     isRealtimeConnected,
     isFireSoundActive,
     toggleFireSound,
+    setIsShareSimulatorOpen,
   } = useApp();
 
   // Clear unread badge whenever user opens that tab
@@ -144,6 +146,22 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
 
         {/* Zone 3: CTA Button (Matching ▶ RUN from ThreeUI retro dock) & User Dock */}
         <div className="flex items-stretch shrink-0">
+          {/* Quick Share Button */}
+          <button
+            onClick={() => {
+              handleSelectTab('RESOURCES');
+              setIsShareSimulatorOpen(true);
+            }}
+            type="button"
+            className="px-2.5 sm:px-3 border-l-2 border-[#4b2f7e]/70 bg-[#150c28]/70 hover:bg-[#241548] text-[#f9c74f] hover:text-[#fff4d6] transition-colors cursor-pointer flex items-center justify-center gap-1 font-mono text-xs select-none"
+            title="Instant Material Share to IT Adda"
+          >
+            <Share2 className="w-3.5 h-3.5 text-[#f9c74f]" />
+            <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wider">
+              Share
+            </span>
+          </button>
+
           {/* Fire Noise Sound ON/OFF Toggle (Synchronized with firing pixel matrix animation) */}
           <button
             onClick={toggleFireSound}

@@ -61,6 +61,8 @@ import {
   GraduationCap,
   Mail,
   Instagram,
+  Share2,
+  Smartphone,
 } from 'lucide-react';
 
 const ROLE_OPTIONS: { role: StudentRole; label: string; group: string }[] = [
@@ -130,6 +132,8 @@ export const AdminPanel: React.FC = () => {
     updateCampusVibeConfig,
     developerFooterConfig,
     updateDeveloperFooterConfig,
+    triggerQuickShareWithFile,
+    setIsShareSimulatorOpen,
   } = useApp();
 
   const isDark = theme === 'dark';
@@ -2187,6 +2191,49 @@ export const AdminPanel: React.FC = () => {
               <p className="text-xs text-[#a08fd4] mt-0.5">
                 Upload university question papers, lab manuals, formula sheets, reference books & cheat sheets
               </p>
+            </div>
+
+            {/* Direct Share Receiver Banner */}
+            <div className="p-3.5 sm:p-4 bg-[#241548]/90 border-2 border-[#f9c74f] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-[3px_3px_0_#060410]">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-[#f9c74f] text-[#1a1030] flex items-center justify-center shrink-0 border border-[#f4e6c8]">
+                  <Share2 className="w-4 h-4 text-[#1a1030]" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-[#f9c74f] uppercase flex items-center gap-1.5">
+                    <span>Direct Share Receiver</span>
+                    <span className="px-1.5 py-0.2 bg-[#52b788]/20 text-[#52b788] text-[9px] border border-[#52b788]/50">Active</span>
+                  </h4>
+                  <p className="text-[11px] text-[#a08fd4]">
+                    Shared a PDF from WhatsApp or Files to IT Adda? It automatically opens here for 1-tap upload.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                <label className="pixel-btn text-xs py-1.5 px-3 cursor-pointer flex items-center gap-1.5">
+                  <Upload className="w-3.5 h-3.5 text-[#1a1030]" />
+                  <span>⚡ 1-Tap Quick Upload</span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        triggerQuickShareWithFile(file);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsShareSimulatorOpen(true)}
+                  className="pixel-btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-[#f47b5c]" />
+                  <span>Test Share Sheet</span>
+                </button>
+              </div>
             </div>
 
             <form onSubmit={handleResourceUploadSubmit} className="space-y-4">

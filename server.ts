@@ -3,6 +3,35 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
+import multer from 'multer';
+
+const uploadStorage = multer.memoryStorage();
+const shareUpload = multer({
+  storage: uploadStorage,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+});
+
+// Cache for files shared via OS share sheet (valid for 30 minutes)
+interface SharedResourceTemp {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  dataUrl?: string;
+  title?: string;
+  text?: string;
+  timestamp: number;
+}
+const tempSharedResources = new Map<string, SharedResourceTemp>();
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, item] of tempSharedResources.entries()) {
+    if (now - item.timestamp > 30 * 60 * 1000) {
+      tempSharedResources.delete(id);
+    }
+  }
+}, 5 * 60 * 1000);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -206,6 +235,90 @@ app.get('/api/realtime/stream', (req, res) => {
     clearInterval(interval);
     sseClients.delete(res);
   });
+});
+
+// Web Share Target: Direct OS share sheet file receiver
+app.post(
+  '/share-target',
+  shareUpload.fields([
+    { name: 'resourceFiles', maxCount: 10 },
+    { name: 'file', maxCount: 1 },
+    { name: 'files', maxCount: 10 },
+  ]),
+  (req, res) => {
+    try {
+      const filesObj = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+      const allFiles: Express.Multer.File[] = [
+        ...(filesObj?.resourceFiles || []),
+        ...(filesObj?.file || []),
+        ...(filesObj?.files || []),
+      ];
+
+      const primaryFile = allFiles[0];
+      const title = (req.body?.title as string) || '';
+      const text = (req.body?.text as string) || '';
+      const url = (req.body?.url as string) || '';
+
+      if (primaryFile) {
+        const shareId = `share_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
+        const base64 = primaryFile.buffer.toString('base64');
+        const mime = primaryFile.mimetype || 'application/octet-stream';
+        const dataUrl = `data:${mime};base64,${base64}`;
+
+        tempSharedResources.set(shareId, {
+          id: shareId,
+          name: primaryFile.originalname || 'Shared_Resource.pdf',
+          size: primaryFile.size,
+          type: mime,
+          dataUrl,
+          title: title || primaryFile.originalname,
+          text: text || url || '',
+          timestamp: Date.now(),
+        });
+
+        // 303 See Other redirect to resources tab with share_id
+        return res.redirect(303, `/?share_id=${shareId}&tab=resources&shared=1`);
+      }
+
+      // If text or URL shared without binary file
+      if (title || text || url) {
+        const shareId = `share_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
+        tempSharedResources.set(shareId, {
+          id: shareId,
+          name: title ? `${title}.txt` : 'Shared_Link.txt',
+          size: Buffer.byteLength(text || url || title),
+          type: 'text/plain',
+          title: title,
+          text: text || url || '',
+          timestamp: Date.now(),
+        });
+        return res.redirect(303, `/?share_id=${shareId}&tab=resources&shared=1`);
+      }
+
+      return res.redirect(303, '/?tab=resources');
+    } catch (err) {
+      console.error('[ShareTarget Error]:', err);
+      return res.redirect(303, '/?tab=resources&share_error=1');
+    }
+  }
+);
+
+app.get('/share-target', (_req, res) => {
+  res.redirect(303, '/?tab=resources');
+});
+
+// Retrieve shared resource payload by ID
+app.get('/api/share-target/:id', (req, res) => {
+  const { id } = req.params;
+  const item = tempSharedResources.get(id);
+  if (!item) {
+    return res.status(404).json({ success: false, message: 'Shared material expired or not found.' });
+  }
+  // Keep item in cache for 1 minute before deletion in case of quick retry
+  setTimeout(() => {
+    tempSharedResources.delete(id);
+  }, 60000);
+  res.json({ success: true, item });
 });
 
 // GET entire state (Sanitized - Never leaks adminCredentials or student passwords)

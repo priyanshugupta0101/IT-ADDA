@@ -12,6 +12,8 @@ import { AdminPanel } from './components/AdminPanel';
 import { RegisterModal } from './components/RegisterModal';
 import { PersonalDetailsModal } from './components/PersonalDetailsModal';
 import { StudentIdCardModal } from './components/StudentIdCardModal';
+import { QuickShareUploadModal } from './components/QuickShareUploadModal';
+import { ShareSimulatorModal } from './components/ShareSimulatorModal';
 import { FiringPixelMatrixBackground } from './components/FiringPixelMatrixBackground';
 import { soundEngine } from './utils/soundEffects';
 import { initAntiTamperProtection } from './utils/antiTamperSecurity';
@@ -24,6 +26,8 @@ import {
   Zap,
   Mail,
   Instagram,
+  Share2,
+  UploadCloud,
 } from 'lucide-react';
 
 function MainContent() {
@@ -35,13 +39,95 @@ function MainContent() {
     campusVibeConfig,
     voteCampusVibe,
     developerFooterConfig,
+    pendingSharedMaterial,
+    setPendingSharedMaterial,
+    isQuickShareModalOpen,
+    setIsQuickShareModalOpen,
+    triggerQuickShareWithFile,
+    isShareSimulatorOpen,
+    setIsShareSimulatorOpen,
   } = useApp();
 
   const isDark = theme === 'dark';
 
   const [activeTab, setActiveTab] = useState<
     'OVERVIEW' | 'MEMBERS' | 'NOTES' | 'RESOURCES' | 'NOTICES' | 'CHAT' | 'ADMIN'
-  >('OVERVIEW');
+  >(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab')?.toUpperCase();
+      if (tabParam === 'RESOURCES' || params.get('share_id') || params.get('share_target')) return 'RESOURCES';
+      if (tabParam === 'ADMIN') return 'ADMIN';
+      if (tabParam === 'NOTES') return 'NOTES';
+      if (tabParam === 'MEMBERS') return 'MEMBERS';
+      if (tabParam === 'NOTICES') return 'NOTICES';
+      if (tabParam === 'CHAT') return 'CHAT';
+    }
+    return 'OVERVIEW';
+  });
+
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  // Auto-redirect to Resources tab when a resource is shared to IT Adda
+  useEffect(() => {
+    if (isQuickShareModalOpen || pendingSharedMaterial) {
+      setActiveTab('RESOURCES');
+    }
+  }, [isQuickShareModalOpen, pendingSharedMaterial]);
+
+  // Global Drag-and-Drop listener to easily share files into IT Adda from any screen
+  useEffect(() => {
+    let dragCounter = 0;
+
+    const handleDragEnter = (e: DragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer?.types?.includes('Files')) {
+        dragCounter++;
+        setIsDragOver(true);
+      }
+    };
+
+    const handleDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter <= 0) {
+        dragCounter = 0;
+        setIsDragOver(false);
+      }
+    };
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    };
+
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+      dragCounter = 0;
+      setIsDragOver(false);
+
+      const files = e.dataTransfer?.files;
+      if (files && files.length > 0) {
+        const file = files[0];
+        triggerQuickShareWithFile(file);
+        setActiveTab('RESOURCES');
+      }
+    };
+
+    window.addEventListener('dragenter', handleDragEnter);
+    window.addEventListener('dragleave', handleDragLeave);
+    window.addEventListener('dragover', handleDragOver);
+    window.addEventListener('drop', handleDrop);
+
+    return () => {
+      window.removeEventListener('dragenter', handleDragEnter);
+      window.removeEventListener('dragleave', handleDragLeave);
+      window.removeEventListener('dragover', handleDragOver);
+      window.removeEventListener('drop', handleDrop);
+    };
+  }, [triggerQuickShareWithFile]);
 
   // Campus Daily Vibe Poll (interactive for daily engagement)
   const [selectedVibe, setSelectedVibe] = useState<string | null>(() => {
@@ -335,6 +421,45 @@ function MainContent() {
       <RegisterModal onOpenAdminPanel={() => setActiveTab('ADMIN')} />
       <PersonalDetailsModal />
       <StudentIdCardModal />
+      <QuickShareUploadModal
+        isOpen={isQuickShareModalOpen}
+        pendingMaterial={pendingSharedMaterial}
+        onClose={() => {
+          setIsQuickShareModalOpen(false);
+          setPendingSharedMaterial(null);
+        }}
+        onSuccessUpload={() => {
+          setActiveTab('RESOURCES');
+        }}
+      />
+      <ShareSimulatorModal
+        isOpen={isShareSimulatorOpen}
+        onClose={() => setIsShareSimulatorOpen(false)}
+        onSelectMaterial={(material) => {
+          setPendingSharedMaterial(material);
+          setIsQuickShareModalOpen(true);
+          setActiveTab('RESOURCES');
+        }}
+      />
+
+      {/* Global Drag-and-Drop Active Overlay */}
+      {isDragOver && (
+        <div className="fixed inset-0 z-50 bg-[#150c28]/90 backdrop-blur-md flex flex-col items-center justify-center p-6 border-4 border-dashed border-[#f9c74f] font-mono pointer-events-none animate-in fade-in">
+          <div className="w-20 h-20 bg-[#f9c74f] text-[#1a1030] border-4 border-[#f4e6c8] flex items-center justify-center mb-4 shadow-[6px_6px_0_#060410] animate-bounce">
+            <UploadCloud className="w-10 h-10 text-[#1a1030]" />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-bold text-[#f9c74f] uppercase tracking-wider text-center">
+            Drop Material to Share to IT Adda
+          </h2>
+          <p className="text-xs sm:text-sm text-[#f4e6c8] mt-2 text-center max-w-md">
+            Release file anywhere to auto-fill title, category & open 1-click upload
+          </p>
+          <div className="mt-4 px-3 py-1 bg-[#241548] border border-[#f9c74f] text-xs text-[#52b788] flex items-center gap-2">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>PDFs · DOCs · PPTs · ZIPs · Notes</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
