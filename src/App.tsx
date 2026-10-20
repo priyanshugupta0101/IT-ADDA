@@ -13,7 +13,6 @@ import { RegisterModal } from './components/RegisterModal';
 import { PersonalDetailsModal } from './components/PersonalDetailsModal';
 import { StudentIdCardModal } from './components/StudentIdCardModal';
 import { QuickShareUploadModal } from './components/QuickShareUploadModal';
-import { ShareSimulatorModal } from './components/ShareSimulatorModal';
 import { FiringPixelMatrixBackground } from './components/FiringPixelMatrixBackground';
 import { soundEngine } from './utils/soundEffects';
 import { initAntiTamperProtection } from './utils/antiTamperSecurity';
@@ -44,8 +43,6 @@ function MainContent() {
     isQuickShareModalOpen,
     setIsQuickShareModalOpen,
     triggerQuickShareWithFile,
-    isShareSimulatorOpen,
-    setIsShareSimulatorOpen,
   } = useApp();
 
   const isDark = theme === 'dark';
@@ -429,15 +426,6 @@ function MainContent() {
           setPendingSharedMaterial(null);
         }}
         onSuccessUpload={() => {
-          setActiveTab('RESOURCES');
-        }}
-      />
-      <ShareSimulatorModal
-        isOpen={isShareSimulatorOpen}
-        onClose={() => setIsShareSimulatorOpen(false)}
-        onSelectMaterial={(material) => {
-          setPendingSharedMaterial(material);
-          setIsQuickShareModalOpen(true);
           setActiveTab('RESOURCES');
         }}
       />

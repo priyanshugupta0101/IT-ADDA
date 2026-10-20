@@ -158,8 +158,6 @@ interface AppContextType {
   isQuickShareModalOpen: boolean;
   setIsQuickShareModalOpen: (open: boolean) => void;
   triggerQuickShareWithFile: (file: File) => void;
-  isShareSimulatorOpen: boolean;
-  setIsShareSimulatorOpen: (open: boolean) => void;
 
   // Notices & Announcements
   postNotice: (
@@ -264,7 +262,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Web Share Target & Fast Material Sharing
   const [pendingSharedMaterial, setPendingSharedMaterial] = useState<PendingSharedMaterial | null>(null);
   const [isQuickShareModalOpen, setIsQuickShareModalOpen] = useState(false);
-  const [isShareSimulatorOpen, setIsShareSimulatorOpen] = useState(false);
 
   const triggerQuickShareWithFile = (file: File) => {
     const meta = smartDeriveResourceMetadata(file.name);
@@ -2656,8 +2653,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isQuickShareModalOpen,
         setIsQuickShareModalOpen,
         triggerQuickShareWithFile,
-        isShareSimulatorOpen,
-        setIsShareSimulatorOpen,
         postNotice,
         approveNotice,
         dismissNotice,

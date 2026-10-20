@@ -16,6 +16,8 @@ import { getBatchFromRoll } from '../utils/studentUtils';
 import { ID_CARD_THEMES } from '../utils/idCardThemes';
 import { GenZIdCard } from './GenZIdCard';
 import { PhotoUploadField } from './PhotoUploadField';
+import { downloadResourceFile } from '../utils/fileDownloadService';
+import { cleanFileNameToTitle } from '../utils/shareTargetService';
 import {
   ShieldCheck,
   ShieldAlert,
@@ -62,7 +64,6 @@ import {
   Mail,
   Instagram,
   Share2,
-  Smartphone,
 } from 'lucide-react';
 
 const ROLE_OPTIONS: { role: StudentRole; label: string; group: string }[] = [
@@ -133,7 +134,6 @@ export const AdminPanel: React.FC = () => {
     developerFooterConfig,
     updateDeveloperFooterConfig,
     triggerQuickShareWithFile,
-    setIsShareSimulatorOpen,
   } = useApp();
 
   const isDark = theme === 'dark';
@@ -491,6 +491,7 @@ export const AdminPanel: React.FC = () => {
   const [resFileName, setResFileName] = useState('');
   const [resFileSize, setResFileSize] = useState('3.5 MB');
   const [resFileType, setResFileType] = useState<'pdf' | 'doc' | 'image' | 'zip'>('pdf');
+  const [resFileUrl, setResFileUrl] = useState('#');
   const [resSearch, setResSearch] = useState('');
   const [resCategoryFilter, setResCategoryFilter] = useState('ALL');
   const [resSuccessToast, setResSuccessToast] = useState('');
@@ -669,7 +670,7 @@ export const AdminPanel: React.FC = () => {
       fileName: resFileName.trim() || `${resTitle.trim().replace(/\s+/g, '_')}.${resFileType === 'zip' ? 'zip' : 'pdf'}`,
       fileType: resFileType,
       fileSize: resFileSize,
-      fileUrl: '#',
+      fileUrl: resFileUrl || '#',
       uploadedBy: {
         id: currentUser?.id || 'admin_itadda',
         name: currentUser?.name || 'Department Administrator',
@@ -686,6 +687,7 @@ export const AdminPanel: React.FC = () => {
     setResTitle('');
     setResDescription('');
     setResFileName('');
+    setResFileUrl('#');
   };
 
   // 3. Submit Announcement Broadcast
@@ -2225,14 +2227,6 @@ export const AdminPanel: React.FC = () => {
                     }}
                   />
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setIsShareSimulatorOpen(true)}
-                  className="pixel-btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
-                >
-                  <Smartphone className="w-3.5 h-3.5 text-[#f47b5c]" />
-                  <span>Test Share Sheet</span>
-                </button>
               </div>
             </div>
 
@@ -2295,7 +2289,13 @@ export const AdminPanel: React.FC = () => {
                           if (file.name.endsWith('.zip')) setResFileType('zip');
                           else if (file.name.endsWith('.doc') || file.name.endsWith('.docx')) setNoteFileType('doc');
                           else setResFileType('pdf');
-                          if (!resTitle) setResTitle(file.name.replace(/\.[^/.]+$/, ''));
+                          setResTitle(cleanFileNameToTitle(file.name));
+
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setResFileUrl((reader.result as string) || '#');
+                          };
+                          reader.readAsDataURL(file);
                         }
                       }}
                       className="hidden"
@@ -2425,7 +2425,8 @@ export const AdminPanel: React.FC = () => {
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         onClick={() => {
-                          showToast(`Starting file download test: ${res.fileName}`);
+                          downloadResourceFile(res);
+                          showToast(`Downloaded: ${res.fileName}`);
                         }}
                         className="pixel-btn-secondary text-xs"
                       >

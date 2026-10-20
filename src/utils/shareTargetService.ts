@@ -72,13 +72,14 @@ export async function getSharedMaterialFromIndexedDB(): Promise<PendingSharedMat
             store.clear();
 
             const meta = smartDeriveResourceMetadata(latest.name || 'Academic_Notes.pdf');
+            const cleanTitle = cleanFileNameToTitle(latest.name || latest.title || 'Shared_Document.pdf');
             resolve({
               name: latest.name || 'Shared_Document.pdf',
               size: latest.size || 0,
               formattedSize: formatBytes(latest.size || 0),
               type: latest.type || 'application/pdf',
               blob: latest.blob,
-              title: latest.title || meta.title,
+              title: cleanTitle,
               subject: meta.subject,
               category: meta.category,
               description: latest.text || meta.description,
@@ -111,6 +112,7 @@ export async function getSharedMaterialFromServer(shareId: string): Promise<Pend
 
     const item = json.item;
     const meta = smartDeriveResourceMetadata(item.name || 'Academic_Material.pdf');
+    const cleanTitle = cleanFileNameToTitle(item.name || item.title || 'Shared_Resource.pdf');
 
     return {
       id: item.id,
@@ -119,7 +121,7 @@ export async function getSharedMaterialFromServer(shareId: string): Promise<Pend
       formattedSize: formatBytes(item.size || 0),
       type: item.type || 'application/pdf',
       dataUrl: item.dataUrl,
-      title: item.title ? cleanFileNameToTitle(item.title) : meta.title,
+      title: cleanTitle,
       subject: meta.subject,
       category: meta.category,
       description: item.text || meta.description,
@@ -149,7 +151,7 @@ export function smartDeriveResourceMetadata(rawFileName: string): {
     category = 'Verified PYQ';
   } else if (lower.includes('lab') || lower.includes('manual') || lower.includes('practical') || lower.includes('experiment')) {
     category = 'Lab Manual';
-  } else if (lower.includes('formula') || lower.includes('formulae') || lower.includes('equations')) {
+  } else if (lower.includes('calculator') || lower.includes('formula') || lower.includes('formulae') || lower.includes('equations')) {
     category = 'Formula Sheet';
   } else if (lower.includes('cheat') || lower.includes('revision') || lower.includes('summary') || lower.includes('mindmap')) {
     category = 'Cheat Sheet';
@@ -159,7 +161,7 @@ export function smartDeriveResourceMetadata(rawFileName: string): {
 
   // Subject Detection
   let subject = 'General Studies';
-  if (lower.includes('math') || lower.includes('m1') || lower.includes('m2') || lower.includes('calculus') || lower.includes('algebra')) {
+  if (lower.includes('math') || lower.includes('m1') || lower.includes('m2') || lower.includes('calculus') || lower.includes('algebra') || lower.includes('calculator')) {
     subject = 'Applied Mathematics';
   } else if (lower.includes('phys') || lower.includes('physics') || lower.includes('optics') || lower.includes('semiconductor')) {
     subject = 'Applied Physics';
@@ -177,6 +179,8 @@ export function smartDeriveResourceMetadata(rawFileName: string): {
     subject = 'Basic Electronics';
   } else if (lower.includes('evs') || lower.includes('environment')) {
     subject = 'Environmental Studies';
+  } else if (lower.includes('workshop') || lower.includes('seminar')) {
+    subject = 'General Studies';
   }
 
   const description = `Shared directly to IT Adda for First Year IT batch (${category} · ${subject}).`;
@@ -192,18 +196,16 @@ export function smartDeriveResourceMetadata(rawFileName: string): {
 export function cleanFileNameToTitle(rawName: string): string {
   if (!rawName) return 'Academic Resource';
 
-  // Strip extension
-  let name = rawName.replace(/\.[a-zA-Z0-9]+$/i, '');
-  // Replace underscores, dashes, plus signs with spaces
-  name = name.replace(/[_\-+]+/g, ' ');
-  // Clean double spaces
+  // Strip extension (.pdf, .doc, .docx, .ppt, .pptx, .zip, etc.)
+  let name = rawName.replace(/\.[a-zA-Z0-9]{1,6}$/i, '');
+  // Replace underscores, dashes with single spaces
+  name = name.replace(/[_\-]+/g, ' ');
+  // Clean multiple spaces
   name = name.replace(/\s+/g, ' ').trim();
 
-  // Capitalize words
-  return name
-    .split(' ')
-    .map((w) => (w.length > 0 ? w[0].toUpperCase() + w.slice(1) : ''))
-    .join(' ');
+  // If the file is named "scientific calculator workshop" (or any specific name),
+  // return the clean name directly so the resource title matches the PDF name exactly.
+  return name || 'Academic Resource';
 }
 
 export function formatBytes(bytes: number): string {

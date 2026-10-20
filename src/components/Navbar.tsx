@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   Trophy,
@@ -30,8 +30,10 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
     isRealtimeConnected,
     isFireSoundActive,
     toggleFireSound,
-    setIsShareSimulatorOpen,
+    triggerQuickShareWithFile,
   } = useApp();
+
+  const navbarFileInputRef = useRef<HTMLInputElement>(null);
 
   // Clear unread badge whenever user opens that tab
   useEffect(() => {
@@ -150,7 +152,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
           <button
             onClick={() => {
               handleSelectTab('RESOURCES');
-              setIsShareSimulatorOpen(true);
+              navbarFileInputRef.current?.click();
             }}
             type="button"
             className="px-2.5 sm:px-3 border-l-2 border-[#4b2f7e]/70 bg-[#150c28]/70 hover:bg-[#241548] text-[#f9c74f] hover:text-[#fff4d6] transition-colors cursor-pointer flex items-center justify-center gap-1 font-mono text-xs select-none"
@@ -161,6 +163,19 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
               Share
             </span>
           </button>
+          <input
+            ref={navbarFileInputRef}
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                triggerQuickShareWithFile(file);
+                handleSelectTab('RESOURCES');
+                e.target.value = '';
+              }
+            }}
+          />
 
           {/* Fire Noise Sound ON/OFF Toggle (Synchronized with firing pixel matrix animation) */}
           <button

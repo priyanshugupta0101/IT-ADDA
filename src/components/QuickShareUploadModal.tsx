@@ -109,15 +109,38 @@ export const QuickShareUploadModal: React.FC<QuickShareUploadModalProps> = ({
       else if (lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg')) setFileType('image');
       else setFileType('pdf');
 
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (pendingMaterial) {
+          pendingMaterial.dataUrl = reader.result as string;
+          pendingMaterial.blob = file;
+        }
+      };
+      reader.readAsDataURL(file);
+
       soundEngine.playSuccess();
     }
   };
 
-  const handleDirectUpload = (e: React.FormEvent) => {
+  const handleDirectUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
 
     setIsUploading(true);
+
+    let finalFileUrl = pendingMaterial?.dataUrl || '#';
+    if (pendingMaterial?.blob && (!finalFileUrl || finalFileUrl === '#')) {
+      try {
+        finalFileUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve((reader.result as string) || '#');
+          reader.onerror = () => resolve('#');
+          reader.readAsDataURL(pendingMaterial.blob as Blob);
+        });
+      } catch {
+        finalFileUrl = '#';
+      }
+    }
 
     const authorProfile = currentUser || {
       id: `anon_${Date.now()}`,
@@ -135,7 +158,7 @@ export const QuickShareUploadModal: React.FC<QuickShareUploadModalProps> = ({
       fileName: fileName || `${title.replace(/\s+/g, '_')}.pdf`,
       fileType,
       fileSize,
-      fileUrl: '#',
+      fileUrl: finalFileUrl,
       uploadedBy: {
         id: authorProfile.id,
         name: authorProfile.name,

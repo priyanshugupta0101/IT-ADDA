@@ -47,13 +47,14 @@ self.addEventListener('fetch', (event) => {
           const sharedUrl = formData.get('url') || '';
 
           if (file) {
+            const rawTitle = file.name ? file.name.replace(/\.[a-zA-Z0-9]{1,6}$/i, '').replace(/[_\-]+/g, ' ').trim() : '';
             await saveSharedFileToIndexedDB({
               name: file.name,
               size: file.size,
               type: file.type,
               lastModified: file.lastModified,
               blob: file,
-              title: typeof title === 'string' ? title : '',
+              title: rawTitle || (typeof title === 'string' ? title : ''),
               text: typeof text === 'string' ? text : '',
               url: typeof sharedUrl === 'string' ? sharedUrl : '',
               timestamp: Date.now(),

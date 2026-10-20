@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { ResourceItem } from '../types';
-import { smartDeriveResourceMetadata, formatBytes } from '../utils/shareTargetService';
+import { smartDeriveResourceMetadata, cleanFileNameToTitle, formatBytes } from '../utils/shareTargetService';
+import { downloadResourceFile } from '../utils/fileDownloadService';
 import {
   FolderArchive,
   Upload,
@@ -10,7 +11,6 @@ import {
   X,
   BookOpen,
   Share2,
-  Smartphone,
   Sparkles,
   Zap,
   HelpCircle,
@@ -34,7 +34,6 @@ export const ImpResourcesSection: React.FC = () => {
     currentUser,
     setIsRegisterModalOpen,
     triggerQuickShareWithFile,
-    setIsShareSimulatorOpen,
   } = useApp();
 
   const [activeCategory, setActiveCategory] = useState('ALL');
@@ -53,6 +52,7 @@ export const ImpResourcesSection: React.FC = () => {
   const [description, setDescription] = useState('');
   const [fileName, setFileName] = useState('');
   const [fileSize, setFileSize] = useState('4.5 MB');
+  const [fileDataUrl, setFileDataUrl] = useState<string>('#');
 
   const filteredResources = useMemo(() => {
     return resources.filter((res) => {
@@ -84,10 +84,17 @@ export const ImpResourcesSection: React.FC = () => {
     if (file) {
       setFileName(file.name);
       setFileSize(formatBytes(file.size));
+      const cleanTitle = cleanFileNameToTitle(file.name);
       const meta = smartDeriveResourceMetadata(file.name);
-      if (!title.trim()) setTitle(meta.title);
-      if (!subject.trim()) setSubject(meta.subject);
+      setTitle(cleanTitle);
+      setSubject(meta.subject);
       setCategory(meta.category);
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFileDataUrl((reader.result as string) || '#');
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -112,7 +119,7 @@ export const ImpResourcesSection: React.FC = () => {
       fileName: fileName || `${title.replace(/\s+/g, '_')}.pdf`,
       fileType: fileName.endsWith('.zip') ? 'zip' : fileName.endsWith('.doc') || fileName.endsWith('.docx') ? 'doc' : 'pdf',
       fileSize,
-      fileUrl: '#',
+      fileUrl: fileDataUrl || '#',
       uploadedBy: {
         id: currentUser.id,
         name: currentUser.name,
@@ -127,10 +134,12 @@ export const ImpResourcesSection: React.FC = () => {
     setSubject('');
     setDescription('');
     setFileName('');
+    setFileDataUrl('#');
   };
 
-  const handleDownload = (filename: string) => {
-    setDownloadToast(`Starting download: ${filename}`);
+  const handleDownload = (resource: ResourceItem) => {
+    downloadResourceFile(resource);
+    setDownloadToast(`Downloaded: ${resource.fileName}`);
     setTimeout(() => setDownloadToast(''), 3000);
   };
 
@@ -205,17 +214,6 @@ export const ImpResourcesSection: React.FC = () => {
               onChange={handleDirectShareFileSelect}
               className="hidden"
             />
-
-            {/* Simulator Button */}
-            <button
-              type="button"
-              onClick={() => setIsShareSimulatorOpen(true)}
-              className="pixel-btn-secondary text-xs py-2 px-3 flex items-center gap-1.5"
-              title="Test the phone share flow with sample materials"
-            >
-              <Smartphone className="w-3.5 h-3.5 text-[#f47b5c]" />
-              <span>Test Share Sheet</span>
-            </button>
 
             {/* How it works info */}
             <button
@@ -348,7 +346,7 @@ export const ImpResourcesSection: React.FC = () => {
                 </span>
 
                 <button
-                  onClick={() => handleDownload(res.fileName)}
+                  onClick={() => handleDownload(res)}
                   className="pixel-btn-secondary text-[11px] py-1 px-3 shrink-0"
                 >
                   <Download className="w-3.5 h-3.5" />

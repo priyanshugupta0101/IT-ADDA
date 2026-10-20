@@ -265,13 +265,17 @@ app.post(
         const mime = primaryFile.mimetype || 'application/octet-stream';
         const dataUrl = `data:${mime};base64,${base64}`;
 
+        const originalName = primaryFile.originalname || 'Shared_Resource.pdf';
+        const rawTitle = originalName.replace(/\.[a-zA-Z0-9]{1,6}$/i, '').replace(/[_\-]+/g, ' ').trim();
+        const derivedTitle = rawTitle || (typeof title === 'string' && title.trim() ? title.trim() : originalName);
+
         tempSharedResources.set(shareId, {
           id: shareId,
-          name: primaryFile.originalname || 'Shared_Resource.pdf',
+          name: originalName,
           size: primaryFile.size,
           type: mime,
           dataUrl,
-          title: title || primaryFile.originalname,
+          title: derivedTitle,
           text: text || url || '',
           timestamp: Date.now(),
         });

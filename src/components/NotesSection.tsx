@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { NoteRequest } from '../types';
+import { downloadResourceFile } from '../utils/fileDownloadService';
 import {
   FileText,
   Plus,
@@ -102,8 +103,15 @@ export const NotesSection: React.FC = () => {
     }
   };
 
-  const handleDownload = (filename: string) => {
-    setDownloadToast(`Preparing download for ${filename}...`);
+  const handleDownload = (ful: any, reqTitle: string, reqSubject: string) => {
+    downloadResourceFile({
+      title: ful.comment || reqTitle || 'Academic Notes',
+      subject: reqSubject || 'First Year IT',
+      fileName: ful.fileName || 'Notes.pdf',
+      fileUrl: ful.fileUrl,
+      uploadedBy: { name: ful.uploadedBy?.name || 'Peer Contributor' },
+    });
+    setDownloadToast(`Downloaded: ${ful.fileName || 'Notes.pdf'}`);
     setTimeout(() => setDownloadToast(''), 3000);
   };
 
@@ -272,7 +280,7 @@ export const NotesSection: React.FC = () => {
                         </div>
 
                         <button
-                          onClick={() => handleDownload(ful.fileName || 'Notes.pdf')}
+                          onClick={() => handleDownload(ful, req.title, req.subject)}
                           className="pixel-btn-secondary text-[11px] py-1 px-3 shrink-0"
                         >
                           <Download className="w-3.5 h-3.5" />
