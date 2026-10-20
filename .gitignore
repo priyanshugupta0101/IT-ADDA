@@ -1,8 +1,34 @@
+# Dependencies
 node_modules/
-build/
+.pnp/
+.pnp.js
+
+# Production Build Outputs
 dist/
-coverage/
-.DS_Store
-*.log
-.env*
+build/
+out/
+
+# Environment Variables & Secrets (Keep .env.example committed)
+.env
+.env.*
 !.env.example
+
+# Runtime & Package Manager Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Operating System & IDE Files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing & Caches
+coverage/
+.cache/
+.temp/

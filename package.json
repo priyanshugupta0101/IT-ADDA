@@ -1,7 +1,8 @@
 {
-  "name": "react-example",
+  "name": "it-adda-campus-portal",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "First-Year IT Engineering Community & Academic Resource Exchange Platform",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
