@@ -156,3 +156,63 @@ export interface CampusVibeConfig {
   subtitle: string;
   options: CampusVibeOption[];
 }
+
+export type HackathonStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'DISMISSED';
+
+export interface HackathonEvent {
+  id: string;
+  title: string;
+  organizedBy: string;
+  registrationDeadline: string;
+  hackathonDates: string;
+  registrationLink: string;
+  prizePool: string;
+  teamSizeInfo?: string;
+  category?: string;
+  status: HackathonStatus;
+  submittedBy: {
+    id: string;
+    name: string;
+    rollNumber?: number;
+  };
+  createdAt: string;
+  isOfficialPdf?: boolean;
+}
+
+export interface HackathonTeamMember {
+  id: string;
+  name: string;
+  role: string;
+  rollNumber: string;
+  joinedAt: string;
+}
+
+export type JoinRequestStatus = 'PENDING' | 'ACCEPTED' | 'DENIED';
+
+export interface HackathonJoinRequest {
+  id: string;
+  applicantId?: string;
+  name: string;
+  role: string;
+  rollNumber: string;
+  status: JoinRequestStatus;
+  requestedAt: string;
+  respondedAt?: string;
+  denialDismissed?: boolean;
+  acceptanceDismissed?: boolean;
+}
+
+export interface HackathonTeam {
+  id: string;
+  hackathonId: string;
+  hackathonTitle: string;
+  teamName: string;
+  captainName: string;
+  captainId?: string;
+  captainRoll?: string;
+  maxSize: number;
+  members: HackathonTeamMember[];
+  joinRequests: HackathonJoinRequest[];
+  createdAt: string;
+}
+

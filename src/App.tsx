@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
-import { Navbar } from './components/Navbar';
+import { Navbar, MainTabId } from './components/Navbar';
 import { BirthdayCelebrationBanner } from './components/BirthdayCelebrationBanner';
 import { TopLeaderboard } from './components/TopLeaderboard';
 import { BrowseMembers } from './components/BrowseMembers';
+import { HackathonsSection } from './components/HackathonsSection';
+import { HackathonPopups } from './components/HackathonPopups';
 import { NotesSection } from './components/NotesSection';
 import { ImpResourcesSection } from './components/ImpResourcesSection';
 import { NoticeSection } from './components/NoticeSection';
@@ -47,14 +49,13 @@ function MainContent() {
 
   const isDark = theme === 'dark';
 
-  const [activeTab, setActiveTab] = useState<
-    'OVERVIEW' | 'MEMBERS' | 'NOTES' | 'RESOURCES' | 'NOTICES' | 'CHAT' | 'ADMIN'
-  >(() => {
+  const [activeTab, setActiveTab] = useState<MainTabId>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get('tab')?.toUpperCase();
       if (tabParam === 'RESOURCES' || params.get('share_id') || params.get('share_target')) return 'RESOURCES';
       if (tabParam === 'ADMIN') return 'ADMIN';
+      if (tabParam === 'HACKATHONS' || tabParam === 'EVENTS') return 'HACKATHONS';
       if (tabParam === 'NOTES') return 'NOTES';
       if (tabParam === 'MEMBERS') return 'MEMBERS';
       if (tabParam === 'NOTICES') return 'NOTICES';
@@ -361,6 +362,9 @@ function MainContent() {
         {/* BROWSE MEMBERS TAB */}
         {activeTab === 'MEMBERS' && <BrowseMembers />}
 
+        {/* HACKATHONS / EVENTS TAB */}
+        {activeTab === 'HACKATHONS' && <HackathonsSection />}
+
         {/* NOTES EXCHANGE TAB */}
         {activeTab === 'NOTES' && <NotesSection />}
 
@@ -415,6 +419,7 @@ function MainContent() {
       </footer>
 
       {/* Global Modals */}
+      <HackathonPopups />
       <RegisterModal onOpenAdminPanel={() => setActiveTab('ADMIN')} />
       <PersonalDetailsModal />
       <StudentIdCardModal />

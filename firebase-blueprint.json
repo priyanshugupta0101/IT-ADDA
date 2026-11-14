@@ -97,6 +97,42 @@
         "options": { "type": "array" }
       },
       "required": ["title", "options"]
+    },
+    "HackathonEvent": {
+      "title": "HackathonEvent",
+      "description": "Hackathon or college tech event listing and admin approval state",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "organizedBy": { "type": "string" },
+        "registrationDeadline": { "type": "string" },
+        "hackathonDates": { "type": "string" },
+        "registrationLink": { "type": "string" },
+        "prizePool": { "type": "string" },
+        "teamSizeInfo": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "title", "status"]
+    },
+    "HackathonTeam": {
+      "title": "HackathonTeam",
+      "description": "Student team formed for a hackathon with join requests and capacity tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "hackathonId": { "type": "string" },
+        "hackathonTitle": { "type": "string" },
+        "teamName": { "type": "string" },
+        "captainName": { "type": "string" },
+        "captainId": { "type": "string" },
+        "maxSize": { "type": "number" },
+        "members": { "type": "array" },
+        "joinRequests": { "type": "array" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "hackathonId", "teamName", "captainName", "maxSize"]
     }
   },
   "firestore": {
@@ -123,6 +159,14 @@
     "/config/campusVibe": {
       "schema": "CampusVibe",
       "description": "Campus daily mood poll settings and counts"
+    },
+    "/hackathons/{hackathonId}": {
+      "schema": "HackathonEvent",
+      "description": "Hackathons and tech events directory & pending submission requests"
+    },
+    "/hackathonTeams/{teamId}": {
+      "schema": "HackathonTeam",
+      "description": "Hackathon teams, member rosters, and join requests"
     }
   }
 }

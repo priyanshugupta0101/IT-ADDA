@@ -24,11 +24,14 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({ onOpenAdminPanel }
   const {
     isRegisterModalOpen,
     setIsRegisterModalOpen,
+    registerModalTab,
+    setRegisterModalTab,
     registerStudent,
     loginStudent,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'REGISTER' | 'SIGNIN'>('REGISTER');
+  const activeTab = registerModalTab;
+  const setActiveTab = setRegisterModalTab;
   const [submittedStatus, setSubmittedStatus] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 

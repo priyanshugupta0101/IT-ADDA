@@ -17,6 +17,8 @@ import {
   NoticeItem,
   ChatMessage,
   CampusVibeConfig,
+  HackathonEvent,
+  HackathonTeam,
 } from '../types';
 
 export const DEFAULT_CAMPUS_VIBE: CampusVibeConfig = {
@@ -161,6 +163,42 @@ export function subscribeToCampusVibe(callback: (config: CampusVibeConfig) => vo
   );
 }
 
+export function subscribeToHackathons(callback: (hackathons: HackathonEvent[]) => void) {
+  const colRef = collection(db, 'hackathons');
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const list: HackathonEvent[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push(docSnap.data() as HackathonEvent);
+      });
+      list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      callback(list);
+    },
+    (error) => {
+      console.error('Firestore hackathons subscription error:', error);
+    }
+  );
+}
+
+export function subscribeToHackathonTeams(callback: (teams: HackathonTeam[]) => void) {
+  const colRef = collection(db, 'hackathonTeams');
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const list: HackathonTeam[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push(docSnap.data() as HackathonTeam);
+      });
+      list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      callback(list);
+    },
+    (error) => {
+      console.error('Firestore hackathonTeams subscription error:', error);
+    }
+  );
+}
+
 // -----------------------------------------------------------------------------
 // Real-time Database Operations (Syncs to all devices instantly)
 // -----------------------------------------------------------------------------
@@ -262,6 +300,36 @@ export async function saveCampusVibeConfig(config: CampusVibeConfig): Promise<vo
   await setDoc(docRef, cleanFirestorePayload(config));
 }
 
+export async function saveHackathonDoc(hackathon: HackathonEvent): Promise<void> {
+  const docRef = doc(db, 'hackathons', hackathon.id);
+  await setDoc(docRef, cleanFirestorePayload(hackathon), { merge: true });
+}
+
+export async function updateHackathonDoc(id: string, updates: Partial<HackathonEvent>): Promise<void> {
+  const docRef = doc(db, 'hackathons', id);
+  await updateDoc(docRef, cleanFirestorePayload(updates));
+}
+
+export async function deleteHackathonDoc(id: string): Promise<void> {
+  const docRef = doc(db, 'hackathons', id);
+  await deleteDoc(docRef);
+}
+
+export async function saveHackathonTeamDoc(team: HackathonTeam): Promise<void> {
+  const docRef = doc(db, 'hackathonTeams', team.id);
+  await setDoc(docRef, cleanFirestorePayload(team), { merge: true });
+}
+
+export async function updateHackathonTeamDoc(id: string, updates: Partial<HackathonTeam>): Promise<void> {
+  const docRef = doc(db, 'hackathonTeams', id);
+  await updateDoc(docRef, cleanFirestorePayload(updates));
+}
+
+export async function deleteHackathonTeamDoc(id: string): Promise<void> {
+  const docRef = doc(db, 'hackathonTeams', id);
+  await deleteDoc(docRef);
+}
+
 export function subscribeToDeveloperFooter(callback: (config: any) => void) {
   const docRef = doc(db, 'config', 'developerFooter');
   return onSnapshot(
@@ -314,8 +382,20 @@ export async function resetCampusVibeVotesInFirestore(): Promise<void> {
   await setDoc(docRef, { ...base, options: resetOptions });
 }
 
+export async function resetHackathonTeamsInFirestore(): Promise<void> {
+  const colRef = collection(db, 'hackathonTeams');
+  const snap = await getDocs(colRef);
+  if (snap.empty) return;
+  const docs = snap.docs;
+  for (let i = 0; i < docs.length; i += 450) {
+    const batch = writeBatch(db);
+    docs.slice(i, i + 450).forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
+}
+
 export async function wipeAllDataInFirestore(): Promise<void> {
-  const collections = ['students', 'noteRequests', 'resources', 'notices', 'chatMessages'];
+  const collections = ['students', 'noteRequests', 'resources', 'notices', 'chatMessages', 'hackathons', 'hackathonTeams'];
   for (const cName of collections) {
     const snap = await getDocs(collection(db, cName));
     const batch = writeBatch(db);

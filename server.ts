@@ -4,6 +4,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
+import { OFFICIAL_PDF_HACKATHONS } from './src/data/hackathonSeedData';
 
 const uploadStorage = multer.memoryStorage();
 const shareUpload = multer({
@@ -77,6 +78,9 @@ interface DatabaseState {
   resources: any[];
   notices: any[];
   chatMessages: any[];
+  hackathons: any[];
+  hackathonTeams: any[];
+  hackathonsSeeded?: boolean;
   campusStreak?: number;
   campusVibeConfig?: CampusVibeConfig;
   adminCredentials?: { username: string; password: string };
@@ -88,6 +92,9 @@ let dbState: DatabaseState = {
   resources: [],
   notices: [],
   chatMessages: [],
+  hackathons: OFFICIAL_PDF_HACKATHONS.map((h) => ({ ...h })),
+  hackathonTeams: [],
+  hackathonsSeeded: true,
   campusStreak: 0,
   campusVibeConfig: DEFAULT_VIBE_CONFIG,
   adminCredentials: { username: 'priyanshu', password: 'priyanshu#it2026' },
@@ -99,12 +106,20 @@ function loadDatabase(): DatabaseState {
     if (fs.existsSync(DB_FILE)) {
       const data = fs.readFileSync(DB_FILE, 'utf-8');
       const parsed = JSON.parse(data);
-      return {
+      const hasHackathonsSeeded = Boolean(parsed.hackathonsSeeded) || (Array.isArray(parsed.hackathons) && parsed.hackathons.length > 0);
+      const initialHackathons = hasHackathonsSeeded
+        ? (Array.isArray(parsed.hackathons) ? parsed.hackathons : [])
+        : OFFICIAL_PDF_HACKATHONS.map((h) => ({ ...h }));
+
+      const loaded: DatabaseState = {
         students: Array.isArray(parsed.students) ? parsed.students : [],
         noteRequests: Array.isArray(parsed.noteRequests) ? parsed.noteRequests : [],
         resources: Array.isArray(parsed.resources) ? parsed.resources : [],
         notices: Array.isArray(parsed.notices) ? parsed.notices : [],
         chatMessages: Array.isArray(parsed.chatMessages) ? parsed.chatMessages : [],
+        hackathons: initialHackathons,
+        hackathonTeams: Array.isArray(parsed.hackathonTeams) ? parsed.hackathonTeams : [],
+        hackathonsSeeded: true,
         campusStreak: typeof parsed.campusStreak === 'number' ? parsed.campusStreak : 0,
         campusVibeConfig: parsed.campusVibeConfig && Array.isArray(parsed.campusVibeConfig.options)
           ? parsed.campusVibeConfig
@@ -113,6 +128,13 @@ function loadDatabase(): DatabaseState {
           ? parsed.adminCredentials
           : { username: 'priyanshu', password: 'NexusIT#Admin2026' },
       };
+
+      if (!parsed.hackathonsSeeded) {
+        try {
+          fs.writeFileSync(DB_FILE, JSON.stringify(loaded, null, 2), 'utf-8');
+        } catch {}
+      }
+      return loaded;
     }
   } catch (err) {
     console.error('Failed to load database.json:', err);
@@ -123,6 +145,9 @@ function loadDatabase(): DatabaseState {
     resources: [],
     notices: [],
     chatMessages: [],
+    hackathons: OFFICIAL_PDF_HACKATHONS.map((h) => ({ ...h })),
+    hackathonTeams: [],
+    hackathonsSeeded: true,
     campusStreak: 0,
     campusVibeConfig: DEFAULT_VIBE_CONFIG,
     adminCredentials: { username: 'priyanshu', password: 'NexusIT#Admin2026' },
@@ -190,6 +215,8 @@ function sanitizeDatabaseForClient(db: DatabaseState): Partial<DatabaseState> {
     resources: db.resources,
     notices: db.notices,
     chatMessages: db.chatMessages,
+    hackathons: db.hackathons || [],
+    hackathonTeams: db.hackathonTeams || [],
     campusStreak: db.campusStreak,
     campusVibeConfig: db.campusVibeConfig,
   };
@@ -381,12 +408,43 @@ app.post('/api/database/sync', (req, res) => {
     }
   }
 
-  if (hasChanges) {
-    saveDatabase();
-    broadcast('DATABASE_SYNCED', { database: dbState });
+  if (Array.isArray(clientData.hackathons)) {
+    for (const cHack of clientData.hackathons) {
+      if (!cHack || !cHack.id) continue;
+      if (!dbState.hackathons.some((h) => h.id === cHack.id)) {
+        dbState.hackathons.push(cHack);
+        hasChanges = true;
+      }
+    }
   }
 
-  res.json({ success: true, database: dbState });
+  if (Array.isArray(clientData.hackathonTeams)) {
+    for (const cTeam of clientData.hackathonTeams) {
+      if (!cTeam || !cTeam.id) continue;
+      const tIdx = dbState.hackathonTeams.findIndex((t) => t.id === cTeam.id);
+      if (tIdx === -1) {
+        dbState.hackathonTeams.push(cTeam);
+        hasChanges = true;
+      } else {
+        const existing = dbState.hackathonTeams[tIdx];
+        const existingReqs = Array.isArray(existing.joinRequests) ? existing.joinRequests.length : 0;
+        const incomingReqs = Array.isArray(cTeam.joinRequests) ? cTeam.joinRequests.length : 0;
+        const existingMembers = Array.isArray(existing.members) ? existing.members.length : 0;
+        const incomingMembers = Array.isArray(cTeam.members) ? cTeam.members.length : 0;
+        if (incomingReqs > existingReqs || incomingMembers > existingMembers) {
+          dbState.hackathonTeams[tIdx] = { ...existing, ...cTeam };
+          hasChanges = true;
+        }
+      }
+    }
+  }
+
+  if (hasChanges) {
+    saveDatabase();
+    broadcast('DATABASE_SYNCED', { database: sanitizeDatabaseForClient(dbState) });
+  }
+
+  res.json({ success: true, database: sanitizeDatabaseForClient(dbState) });
 });
 
 // POST register student
@@ -639,6 +697,219 @@ app.post('/api/vibe/vote', (req, res) => {
 });
 
 // ============================================================================
+// Hackathons / Events & Team Formation Endpoints
+// ============================================================================
+
+app.post('/api/hackathons', (req, res) => {
+  const hackathon = req.body;
+  if (!hackathon || !hackathon.id || !hackathon.title?.trim()) {
+    return res.status(400).json({ error: 'Hackathon title and ID are required.' });
+  }
+
+  const idx = dbState.hackathons.findIndex((h) => h.id === hackathon.id);
+  if (idx >= 0) {
+    dbState.hackathons[idx] = { ...dbState.hackathons[idx], ...hackathon };
+  } else {
+    dbState.hackathons.unshift(hackathon);
+  }
+  dbState.hackathonsSeeded = true;
+
+  saveDatabase();
+  broadcast('HACKATHON_CREATED', { hackathon, hackathons: dbState.hackathons });
+  res.json({ success: true, hackathon });
+});
+
+app.put('/api/hackathons/:id', (req, res) => {
+  const { id } = req.params;
+  const updates = req.body || {};
+  const idx = dbState.hackathons.findIndex((h) => h.id === id);
+
+  if (idx === -1) {
+    return res.status(404).json({ error: 'Hackathon not found' });
+  }
+
+  dbState.hackathons[idx] = { ...dbState.hackathons[idx], ...updates };
+  if (typeof updates.title === 'string' && updates.title.trim()) {
+    const updatedTitle = updates.title.trim();
+    dbState.hackathonTeams = dbState.hackathonTeams.map((t) =>
+      t.hackathonId === id ? { ...t, hackathonTitle: updatedTitle } : t
+    );
+  }
+  saveDatabase();
+  broadcast('HACKATHON_UPDATED', {
+    hackathon: dbState.hackathons[idx],
+    hackathons: dbState.hackathons,
+    hackathonTeams: dbState.hackathonTeams,
+  });
+  res.json({ success: true, hackathon: dbState.hackathons[idx] });
+});
+
+app.delete('/api/hackathons/:id', (req, res) => {
+  const { id } = req.params;
+  dbState.hackathons = dbState.hackathons.filter((h) => h.id !== id);
+  dbState.hackathonTeams = dbState.hackathonTeams.filter((t) => t.hackathonId !== id);
+  dbState.hackathonsSeeded = true;
+  saveDatabase();
+  broadcast('HACKATHON_DELETED', { id, hackathons: dbState.hackathons, hackathonTeams: dbState.hackathonTeams });
+  res.json({ success: true });
+});
+
+app.post('/api/hackathons/restore-official', (_req, res) => {
+  for (const official of OFFICIAL_PDF_HACKATHONS) {
+    if (!dbState.hackathons.some((h) => h.id === official.id)) {
+      dbState.hackathons.push({ ...official });
+    }
+  }
+  dbState.hackathonsSeeded = true;
+  saveDatabase();
+  broadcast('HACKATHONS_SYNCED', { hackathons: dbState.hackathons });
+  res.json({ success: true, hackathons: dbState.hackathons });
+});
+
+app.post('/api/hackathon-teams', (req, res) => {
+  const team = req.body;
+  if (!team || !team.id || !team.teamName?.trim() || !team.captainName?.trim()) {
+    return res.status(400).json({ error: 'Team name and captain name are required.' });
+  }
+
+  const normalizedTeam = {
+    ...team,
+    maxSize: Math.max(1, Math.min(10, Number(team.maxSize) || 4)),
+    members: Array.isArray(team.members) ? team.members : [],
+    joinRequests: Array.isArray(team.joinRequests) ? team.joinRequests : [],
+  };
+
+  const idx = dbState.hackathonTeams.findIndex((t) => t.id === normalizedTeam.id);
+  if (idx >= 0) {
+    dbState.hackathonTeams[idx] = normalizedTeam;
+  } else {
+    dbState.hackathonTeams.unshift(normalizedTeam);
+  }
+
+  saveDatabase();
+  broadcast('HACKATHON_TEAM_CREATED', { team: normalizedTeam, hackathonTeams: dbState.hackathonTeams });
+  res.json({ success: true, team: normalizedTeam });
+});
+
+app.put('/api/hackathon-teams/:id', (req, res) => {
+  const { id } = req.params;
+  const updates = req.body || {};
+  const idx = dbState.hackathonTeams.findIndex((t) => t.id === id);
+  if (idx === -1) {
+    return res.status(404).json({ error: 'Team not found' });
+  }
+  dbState.hackathonTeams[idx] = { ...dbState.hackathonTeams[idx], ...updates };
+  saveDatabase();
+  broadcast('HACKATHON_TEAM_UPDATED', { team: dbState.hackathonTeams[idx], hackathonTeams: dbState.hackathonTeams });
+  res.json({ success: true, team: dbState.hackathonTeams[idx] });
+});
+
+app.delete('/api/hackathon-teams/:id', (req, res) => {
+  const { id } = req.params;
+  dbState.hackathonTeams = dbState.hackathonTeams.filter((t) => t.id !== id);
+  saveDatabase();
+  broadcast('HACKATHON_TEAM_DELETED', { id, hackathonTeams: dbState.hackathonTeams });
+  res.json({ success: true });
+});
+
+app.post('/api/hackathon-teams/:id/request', (req, res) => {
+  const { id } = req.params;
+  const joinReq = req.body;
+  const idx = dbState.hackathonTeams.findIndex((t) => t.id === id);
+  if (idx === -1) {
+    return res.status(404).json({ error: 'Team not found' });
+  }
+  const team = dbState.hackathonTeams[idx];
+  if (!joinReq || !joinReq.id || !joinReq.name?.trim()) {
+    return res.status(400).json({ error: 'Applicant name is required' });
+  }
+  const existingReqs = Array.isArray(team.joinRequests) ? team.joinRequests : [];
+  if (existingReqs.some((r: any) => r.id === joinReq.id)) {
+    return res.json({ success: true, team });
+  }
+  team.joinRequests = [joinReq, ...existingReqs];
+  dbState.hackathonTeams[idx] = team;
+  saveDatabase();
+  broadcast('HACKATHON_TEAM_UPDATED', { team, hackathonTeams: dbState.hackathonTeams });
+  res.json({ success: true, team });
+});
+
+app.post('/api/hackathon-teams/:id/respond', (req, res) => {
+  const { id } = req.params;
+  const { requestId, decision } = req.body || {};
+  const idx = dbState.hackathonTeams.findIndex((t) => t.id === id);
+  if (idx === -1) {
+    return res.status(404).json({ error: 'Team not found' });
+  }
+  const team = dbState.hackathonTeams[idx];
+  const reqIdx = (team.joinRequests || []).findIndex((r: any) => r.id === requestId);
+  if (reqIdx === -1) {
+    return res.status(404).json({ error: 'Join request not found' });
+  }
+
+  const targetReq = team.joinRequests[reqIdx];
+  const members = Array.isArray(team.members) ? [...team.members] : [];
+
+  if (decision === 'ACCEPTED') {
+    if (members.length >= (team.maxSize || 4)) {
+      return res.status(400).json({ error: 'Team is already full.' });
+    }
+    const alreadyMember = members.some(
+      (m: any) =>
+        m.id === targetReq.id ||
+        (m.rollNumber && targetReq.rollNumber && String(m.rollNumber).trim().toLowerCase() === String(targetReq.rollNumber).trim().toLowerCase())
+    );
+    if (!alreadyMember) {
+      members.push({
+        id: targetReq.id,
+        name: targetReq.name,
+        role: targetReq.role,
+        rollNumber: targetReq.rollNumber,
+        joinedAt: new Date().toISOString(),
+      });
+    }
+    team.members = members;
+    team.joinRequests[reqIdx] = {
+      ...targetReq,
+      status: 'ACCEPTED',
+      respondedAt: new Date().toISOString(),
+      acceptanceDismissed: false,
+    };
+  } else {
+    team.joinRequests[reqIdx] = {
+      ...targetReq,
+      status: 'DENIED',
+      respondedAt: new Date().toISOString(),
+      denialDismissed: false,
+    };
+  }
+
+  dbState.hackathonTeams[idx] = team;
+  saveDatabase();
+  broadcast('HACKATHON_TEAM_UPDATED', { team, hackathonTeams: dbState.hackathonTeams });
+  res.json({ success: true, team });
+});
+
+app.post('/api/hackathon-teams/:id/dismiss-notification', (req, res) => {
+  const { id } = req.params;
+  const { requestId, type } = req.body || {};
+  const idx = dbState.hackathonTeams.findIndex((t) => t.id === id);
+  if (idx === -1) {
+    return res.status(404).json({ error: 'Team not found' });
+  }
+  const team = dbState.hackathonTeams[idx];
+  team.joinRequests = (team.joinRequests || []).map((r: any) => {
+    if (r.id !== requestId) return r;
+    if (type === 'ACCEPTED') return { ...r, acceptanceDismissed: true };
+    return { ...r, denialDismissed: true };
+  });
+  dbState.hackathonTeams[idx] = team;
+  saveDatabase();
+  broadcast('HACKATHON_TEAM_UPDATED', { team, hackathonTeams: dbState.hackathonTeams });
+  res.json({ success: true, team });
+});
+
+// ============================================================================
 // Secure Cryptographic Admin Session Authentication & Anti-Tamper Enforcement
 // ============================================================================
 interface AdminSession {
@@ -759,6 +1030,20 @@ app.post('/api/admin/reset', requireAdminAuth, (req, res) => {
     return res.json({ success: true, message: 'Campus vibe poll votes reset to 0.', vibeConfig: dbState.campusVibeConfig });
   }
 
+  if (mode === 'hackathon-teams') {
+    dbState.hackathonTeams = [];
+    saveDatabase();
+    broadcast('HACKATHON_TEAMS_RESET', {
+      hackathonTeams: [],
+      database: sanitizeDatabaseForClient(dbState),
+    });
+    return res.json({
+      success: true,
+      message: 'All hackathon teams and join requests reset to 0.',
+      hackathonTeams: [],
+    });
+  }
+
   if (mode === 'default' || mode === 'wipe') {
     dbState = {
       students: [],
@@ -766,14 +1051,17 @@ app.post('/api/admin/reset', requireAdminAuth, (req, res) => {
       resources: [],
       notices: [],
       chatMessages: [],
+      hackathons: mode === 'default' ? OFFICIAL_PDF_HACKATHONS.map((h) => ({ ...h })) : [],
+      hackathonTeams: [],
+      hackathonsSeeded: true,
       campusStreak: 0,
       campusVibeConfig: DEFAULT_VIBE_CONFIG,
       adminCredentials: dbState.adminCredentials || { username: 'admin', password: 'password123' },
     };
     saveDatabase();
-    broadcast('DATABASE_RESET', { mode: 'wipe', database: dbState });
-    broadcast('VIBE_RESET', { vibeConfig: dbState.campusVibeConfig, database: dbState });
-    return res.json({ success: true, message: 'All database records wiped clean successfully', database: dbState });
+    broadcast('DATABASE_RESET', { mode, database: sanitizeDatabaseForClient(dbState) });
+    broadcast('VIBE_RESET', { vibeConfig: dbState.campusVibeConfig, database: sanitizeDatabaseForClient(dbState) });
+    return res.json({ success: true, message: mode === 'default' ? 'Official default state restored.' : 'All database records wiped clean successfully', database: sanitizeDatabaseForClient(dbState) });
   }
 });
 

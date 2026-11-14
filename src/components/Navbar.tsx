@@ -13,11 +13,22 @@ import {
   VolumeX,
   Flame,
   Share2,
+  Rocket,
 } from 'lucide-react';
 
+export type MainTabId =
+  | 'OVERVIEW'
+  | 'MEMBERS'
+  | 'HACKATHONS'
+  | 'NOTES'
+  | 'RESOURCES'
+  | 'NOTICES'
+  | 'CHAT'
+  | 'ADMIN';
+
 interface NavbarProps {
-  activeTab: 'OVERVIEW' | 'MEMBERS' | 'NOTES' | 'RESOURCES' | 'NOTICES' | 'CHAT' | 'ADMIN';
-  setActiveTab: (tab: 'OVERVIEW' | 'MEMBERS' | 'NOTES' | 'RESOURCES' | 'NOTICES' | 'CHAT' | 'ADMIN') => void;
+  activeTab: MainTabId;
+  setActiveTab: (tab: MainTabId) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
@@ -70,6 +81,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
   const navLinks: { id: typeof activeTab; label: string; icon: React.ReactNode }[] = [
     { id: 'OVERVIEW', label: 'Campus Hub', icon: <Trophy className="w-3.5 h-3.5" /> },
     { id: 'MEMBERS', label: 'Students', icon: <Users className="w-3.5 h-3.5" /> },
+    { id: 'HACKATHONS', label: 'Hackathons/Events', icon: <Rocket className="w-3.5 h-3.5" /> },
     { id: 'NOTES', label: 'Notes', icon: <FileText className="w-3.5 h-3.5" /> },
     { id: 'RESOURCES', label: 'PYQs & Papers', icon: <FolderArchive className="w-3.5 h-3.5" /> },
     { id: 'NOTICES', label: 'Notices', icon: <Bell className="w-3.5 h-3.5" /> },
@@ -126,7 +138,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                 onClick={() => handleSelectTab(link.id)}
                 type="button"
                 aria-pressed={isActive}
-                className={`flex-1 min-w-0 px-2 sm:px-3 flex items-center justify-center gap-1.5 border-r-2 border-[#4b2f7e]/70 font-mono text-xs uppercase tracking-wider transition-colors cursor-pointer select-none ${
+                className={`flex-1 min-w-0 px-1.5 xl:px-2.5 flex items-center justify-center gap-1 border-r-2 border-[#4b2f7e]/70 font-mono text-[11px] xl:text-xs uppercase tracking-wide transition-colors cursor-pointer select-none ${
                   isActive
                     ? 'bg-[#f9c74f] text-[#1a1030] font-bold shadow-inner'
                     : 'bg-[#241548]/60 backdrop-blur-md text-[#b9a7e8] hover:bg-[#3a2170]/80 hover:text-[#fff4d6]'

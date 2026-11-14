@@ -10,6 +10,7 @@ import {
   IdCardTheme,
   GenderType,
   BatchType,
+  HackathonEvent,
 } from '../types';
 import { soundEngine } from '../utils/soundEffects';
 import { getBatchFromRoll } from '../utils/studentUtils';
@@ -64,6 +65,10 @@ import {
   Mail,
   Instagram,
   Share2,
+  Rocket,
+  Trophy,
+  Crown,
+  Building2,
 } from 'lucide-react';
 
 const ROLE_OPTIONS: { role: StudentRole; label: string; group: string }[] = [
@@ -128,12 +133,23 @@ export const AdminPanel: React.FC = () => {
     resetData,
     resetAllLikes,
     resetCampusVibePoll,
+    resetHackathonTeams,
     theme,
     campusVibeConfig,
     updateCampusVibeConfig,
     developerFooterConfig,
     updateDeveloperFooterConfig,
     triggerQuickShareWithFile,
+    hackathons,
+    hackathonTeams,
+    submitHackathonRequest,
+    approveHackathon,
+    dismissHackathon,
+    updateHackathon,
+    deleteHackathon,
+    restoreOfficialHackathons,
+    deleteHackathonTeam,
+    respondToJoinRequest,
   } = useApp();
 
   const isDark = theme === 'dark';
@@ -153,8 +169,22 @@ export const AdminPanel: React.FC = () => {
 
   // Admin Navigation
   const [activeAdminTab, setActiveAdminTab] = useState<
-    'OVERVIEW' | 'MY_PROFILE' | 'NOTES' | 'RESOURCES' | 'ANNOUNCEMENTS' | 'NOTICES' | 'PROFILES' | 'ROSTER' | 'VIBE' | 'SETTINGS'
+    'OVERVIEW' | 'MY_PROFILE' | 'HACKATHONS' | 'NOTES' | 'RESOURCES' | 'ANNOUNCEMENTS' | 'NOTICES' | 'PROFILES' | 'ROSTER' | 'VIBE' | 'SETTINGS'
   >('OVERVIEW');
+
+  // Admin Hackathon Popup Snooze & Direct Add Form State
+  const [snoozedAdminHackathonIds, setSnoozedAdminHackathonIds] = useState<string[]>([]);
+  const [adminHackTitle, setAdminHackTitle] = useState('');
+  const [adminHackOrg, setAdminHackOrg] = useState('');
+  const [adminHackDeadline, setAdminHackDeadline] = useState('');
+  const [adminHackDates, setAdminHackDates] = useState('');
+  const [adminHackPrize, setAdminHackPrize] = useState('');
+  const [adminHackTeamSize, setAdminHackTeamSize] = useState('');
+  const [adminHackLink, setAdminHackLink] = useState('');
+  const [isAddHackathonModalOpen, setIsAddHackathonModalOpen] = useState(false);
+  const [editingHackathon, setEditingHackathon] = useState<HackathonEvent | null>(null);
+  const [hackathonListFilter, setHackathonListFilter] = useState<'ALL' | 'APPROVED' | 'PENDING_APPROVAL' | 'DISMISSED'>('ALL');
+  const [hackathonListSearch, setHackathonListSearch] = useState('');
 
   const [selectedRoles, setSelectedRoles] = useState<Record<string, StudentRole>>({});
   const [rosterSearch, setRosterSearch] = useState('');
@@ -522,6 +552,11 @@ export const AdminPanel: React.FC = () => {
   const pendingStudents = students.filter((s) => s.status === 'PENDING_APPROVAL');
   const pendingNotices = notices.filter((n) => n.status === 'PENDING_APPROVAL');
   const approvedStudents = students.filter((s) => s.status === 'APPROVED');
+  const pendingHackathons = hackathons.filter((h) => h.status === 'PENDING_APPROVAL');
+  const approvedHackathons = hackathons.filter((h) => h.status === 'APPROVED');
+  const activeAdminHackPopup = pendingHackathons.find(
+    (h) => !snoozedAdminHackathonIds.includes(h.id)
+  );
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -809,6 +844,116 @@ export const AdminPanel: React.FC = () => {
   // --------------------------------------------------------------------------
   return (
     <div className="w-full space-y-6">
+      {/* Admin Pending Hackathon/Event Approval Pop-up */}
+      {activeAdminHackPopup && (
+        <div className="fixed inset-0 z-[65] flex items-center justify-center p-4 bg-[#060410]/85 backdrop-blur-md font-mono animate-in fade-in">
+          <div className="border-2 border-[#f9c74f] bg-[#150c28]/95 p-5 sm:p-6 shadow-[8px_8px_0_#060410] w-full max-w-lg space-y-4">
+            <div className="flex items-start justify-between gap-2 pb-3 border-b-2 border-[#4b2f7e]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 bg-[#f9c74f] text-[#1a1030] border border-[#f4e6c8] flex items-center justify-center shrink-0">
+                  <Rocket className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-[#f47b5c] text-[#1a1030]">
+                    New Event Request ({pendingHackathons.length} pending)
+                  </span>
+                  <h3 className="text-base font-bold text-[#fff4d6] mt-1">
+                    Approve Hackathon / Event?
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setSnoozedAdminHackathonIds((prev) => [...prev, activeAdminHackPopup.id])
+                }
+                className="p-1 text-[#a08fd4] hover:text-[#f47b5c] cursor-pointer"
+                title="Review later"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-[#1a1030] border-2 border-[#4b2f7e] space-y-2 text-xs">
+              <div>
+                <span className="text-[10px] uppercase text-[#a08fd4] block">Title</span>
+                <span className="text-sm font-bold text-[#f9c74f]">{activeAdminHackPopup.title}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <div>
+                  <span className="text-[10px] uppercase text-[#a08fd4] block">Organized By</span>
+                  <span className="text-[#f4e6c8] font-bold">{activeAdminHackPopup.organizedBy || 'TBA'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase text-[#a08fd4] block">Prize Pool</span>
+                  <span className="text-[#52b788] font-bold">{activeAdminHackPopup.prizePool || 'TBA'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase text-[#a08fd4] block">Deadline</span>
+                  <span className="text-[#f47b5c] font-bold">{activeAdminHackPopup.registrationDeadline || 'TBA'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase text-[#a08fd4] block">Hackathon Dates</span>
+                  <span className="text-[#f4e6c8] font-bold">{activeAdminHackPopup.hackathonDates || 'TBA'}</span>
+                </div>
+              </div>
+              {activeAdminHackPopup.registrationLink && activeAdminHackPopup.registrationLink !== '#' && (
+                <div className="pt-1">
+                  <span className="text-[10px] uppercase text-[#a08fd4] block">Registration Link</span>
+                  <a
+                    href={activeAdminHackPopup.registrationLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#f9c74f] underline break-all"
+                  >
+                    {activeAdminHackPopup.registrationLink}
+                  </a>
+                </div>
+              )}
+              <div className="pt-1 text-[11px] text-[#a08fd4]">
+                Requested by: <span className="text-white font-bold">{activeAdminHackPopup.submittedBy?.name || 'Student'}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setSnoozedAdminHackathonIds((prev) => [...prev, activeAdminHackPopup.id]);
+                  setActiveAdminTab('HACKATHONS');
+                }}
+                className="text-xs text-[#b9a7e8] hover:text-[#f9c74f] underline cursor-pointer"
+              >
+                Open Hackathons & Teams Page
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await dismissHackathon(activeAdminHackPopup.id);
+                    showToast(`Dismissed "${activeAdminHackPopup.title}".`);
+                  }}
+                  className="pixel-btn-crimson text-xs"
+                >
+                  Dismiss
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await approveHackathon(activeAdminHackPopup.id);
+                    showToast(`Approved "${activeAdminHackPopup.title}" — now live in Hackathons/Events!`);
+                  }}
+                  className="pixel-btn text-xs"
+                >
+                  ✓ Approve & Publish
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Toast message */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 p-4 bg-[#150c28]/95 backdrop-blur-xl text-[#f4e6c8] text-xs font-mono font-bold shadow-[6px_6px_0_#060410] flex items-center gap-2 border-2 border-[#f4e6c8] animate-in fade-in">
@@ -914,6 +1059,24 @@ export const AdminPanel: React.FC = () => {
         >
           <User className="w-4 h-4" />
           <span>My Profile & Card</span>
+        </button>
+
+        {/* HACKATHONS & TEAMS TAB */}
+        <button
+          onClick={() => setActiveAdminTab('HACKATHONS')}
+          className={`flex items-center gap-2 px-3 py-1.5 text-xs uppercase tracking-wider transition-colors cursor-pointer select-none border whitespace-nowrap ${
+            activeAdminTab === 'HACKATHONS'
+              ? 'bg-[#f9c74f] text-[#1a1030] font-bold border-[#f4e6c8] shadow-xs'
+              : 'bg-[#241548] text-[#b9a7e8] border-[#4b2f7e] hover:bg-[#3a2170] hover:text-[#fff4d6]'
+          }`}
+        >
+          <Rocket className="w-4 h-4" />
+          <span>Hackathons & Teams ({hackathonTeams.length})</span>
+          {pendingHackathons.length > 0 && (
+            <span className="px-1.5 py-0.2 bg-[#d34c53] text-white text-[9px] font-bold border border-[#f4e6c8]">
+              {pendingHackathons.length}
+            </span>
+          )}
         </button>
 
         {/* 1. UPLOAD NOTES TAB */}
@@ -1181,21 +1344,26 @@ export const AdminPanel: React.FC = () => {
                 </div>
               </div>
 
-              {/* Card 5: Campus Vibe Poll */}
+              {/* Card 5: Hackathons & Teams */}
               <div
-                onClick={() => setActiveAdminTab('VIBE')}
+                onClick={() => setActiveAdminTab('HACKATHONS')}
                 className="bg-[#1a1030]/65 hover:bg-[#241548]/75 backdrop-blur-md border-2 border-[#4b2f7e]/80 hover:border-[#f9c74f] p-4 shadow-[4px_4px_0_#060410] transition-all cursor-pointer group flex flex-col justify-between font-mono"
               >
                 <div>
-                  <div className="w-9 h-9 border-2 border-[#f4e6c8] bg-[#ff9844] text-[#1a1030] flex items-center justify-center mb-2.5 shadow-[2px_2px_0_#060410]">
-                    <Sparkles className="w-4 h-4" />
+                  <div className="w-9 h-9 border-2 border-[#f4e6c8] bg-[#52b788] text-[#1a1030] flex items-center justify-center mb-2.5 shadow-[2px_2px_0_#060410]">
+                    <Rocket className="w-4 h-4" />
                   </div>
                   <h4 className="text-sm font-bold text-[#f4e6c8] group-hover:text-[#f9c74f] transition-colors uppercase">
-                    Vibe Poll
+                    Hackathons & Teams
                   </h4>
+                  {pendingHackathons.length > 0 && (
+                    <span className="inline-block mt-1 px-1.5 py-0.5 text-[10px] font-bold bg-[#d34c53] text-white">
+                      {pendingHackathons.length} Event Req
+                    </span>
+                  )}
                 </div>
                 <div className="mt-3 pt-2.5 border-t border-[#4b2f7e] flex items-center justify-between text-xs font-bold text-[#f9c74f]">
-                  <span>Poll</span>
+                  <span>{hackathonTeams.length} Teams</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
@@ -3811,7 +3979,7 @@ export const AdminPanel: React.FC = () => {
                 <h4 className="text-xs font-bold text-[#f9c74f] uppercase tracking-wider">Database & System Reset Controls</h4>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
                 {/* Reset 1: Default Demo Batch */}
                 <div className="p-3 bg-[#241548]/70 border border-[#4b2f7e] space-y-2">
                   <h5 className="text-xs font-bold text-[#f4e6c8]">1. Restore Demo State</h5>
@@ -3874,11 +4042,32 @@ export const AdminPanel: React.FC = () => {
                     <span>Reset Poll Votes</span>
                   </button>
                 </div>
+
+                {/* Reset 4: Reset Hackathon Teams & Requests */}
+                <div className="p-3 bg-[#241548]/70 border border-[#4b2f7e] space-y-2">
+                  <h5 className="text-xs font-bold text-[#f4e6c8]">4. Reset Teams & Requests</h5>
+                  <p className="text-[11px] text-[#a08fd4]">
+                    Resets all hackathon teams and join requests back to 0 without deleting hackathons.
+                  </p>
+                  <button
+                    disabled={Boolean(isResetting)}
+                    onClick={async () => {
+                      setIsResetting('hackathon-teams');
+                      const res = await resetHackathonTeams();
+                      setIsResetting(null);
+                      showToast(res.message);
+                    }}
+                    className="pixel-btn-secondary text-xs py-1 px-3 w-full"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isResetting === 'hackathon-teams' ? 'animate-spin' : ''}`} />
+                    <span>Reset Teams to 0</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Reset 4: Wipe Clean */}
+              {/* Reset 5: Wipe Clean */}
               <div className="p-3 bg-[#d34c53]/15 border-2 border-[#d34c53] space-y-2">
-                <h5 className="text-xs font-bold text-[#fff4d6] uppercase">4. Hard Wipe Database (Clean Launch Slate)</h5>
+                <h5 className="text-xs font-bold text-[#fff4d6] uppercase">5. Hard Wipe Database (Clean Launch Slate)</h5>
                 <p className="text-[11px] text-[#b9a7e8]">
                   Clears all students (0 members), notes, circulars, and chat messages across client and server.
                 </p>
@@ -3918,6 +4107,445 @@ export const AdminPanel: React.FC = () => {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ----------------------------------------------------------------------
+          TAB: HACKATHONS & TEAMS (Event Approvals + Full Team & Request Tracker)
+      ----------------------------------------------------------------------- */}
+      {activeAdminTab === 'HACKATHONS' && (
+        <div className="space-y-6 font-mono">
+          {/* Summary Stats Row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-[#1a1030]/75 border-2 border-[#4b2f7e] p-4 shadow-[4px_4px_0_#060410]">
+              <span className="text-[10px] uppercase text-[#a08fd4] font-bold block">Live Hackathons</span>
+              <span className="text-2xl font-bold text-[#f9c74f] mt-1 block">{approvedHackathons.length}</span>
+            </div>
+            <div className="bg-[#1a1030]/75 border-2 border-[#4b2f7e] p-4 shadow-[4px_4px_0_#060410]">
+              <span className="text-[10px] uppercase text-[#a08fd4] font-bold block">Pending Event Requests</span>
+              <span className="text-2xl font-bold text-[#f47b5c] mt-1 block">{pendingHackathons.length}</span>
+            </div>
+            <div className="bg-[#1a1030]/75 border-2 border-[#4b2f7e] p-4 shadow-[4px_4px_0_#060410]">
+              <span className="text-[10px] uppercase text-[#a08fd4] font-bold block">Teams Created</span>
+              <span className="text-2xl font-bold text-[#52b788] mt-1 block">{hackathonTeams.length}</span>
+            </div>
+            <div className="bg-[#1a1030]/75 border-2 border-[#4b2f7e] p-4 shadow-[4px_4px_0_#060410]">
+              <span className="text-[10px] uppercase text-[#a08fd4] font-bold block">Total Member Requests</span>
+              <span className="text-2xl font-bold text-[#fff4d6] mt-1 block">
+                {hackathonTeams.reduce((sum, t) => sum + (t.joinRequests || []).length, 0)}
+              </span>
+            </div>
+          </div>
+
+          {/* 1. PENDING HACKATHON/EVENT REQUESTS QUEUE */}
+          <div className="border-2 border-[#4b2f7e]/80 bg-[#150c28]/70 backdrop-blur-xl p-5 shadow-[4px_4px_0_#060410] space-y-4">
+            <div className="flex items-center justify-between gap-2 pb-3 border-b-2 border-[#4b2f7e]">
+              <h3 className="text-sm sm:text-base font-bold text-[#f9c74f] uppercase tracking-wider flex items-center gap-2">
+                <Clock className="w-4 h-4 text-[#f47b5c]" />
+                <span>Pending Hackathon / Event Requests ({pendingHackathons.length})</span>
+              </h3>
+            </div>
+
+            {pendingHackathons.length === 0 ? (
+              <div className="p-4 bg-[#2d6a4f]/20 border border-[#52b788] text-xs text-[#52b788] font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>No pending event submission requests right now.</span>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pendingHackathons.map((hack) => (
+                  <div
+                    key={hack.id}
+                    className="p-4 bg-[#1a1030] border-2 border-[#f9c74f]/70 flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs"
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-[#fff4d6]">{hack.title}</span>
+                        <span className="px-2 py-0.5 text-[10px] font-bold bg-[#f47b5c] text-[#1a1030]">
+                          PENDING APPROVAL
+                        </span>
+                      </div>
+                      <p className="text-[#b9a7e8]">
+                        Organized by: <strong className="text-[#f4e6c8]">{hack.organizedBy}</strong> · Prize:{' '}
+                        <strong className="text-[#52b788]">{hack.prizePool}</strong>
+                      </p>
+                      <p className="text-[11px] text-[#a08fd4]">
+                        Deadline: <span className="text-[#f47b5c]">{hack.registrationDeadline}</span> · Dates:{' '}
+                        <span className="text-[#f4e6c8]">{hack.hackathonDates}</span> · Submitted by:{' '}
+                        <span className="text-[#f9c74f]">{hack.submittedBy?.name || 'Student'}</span>
+                      </p>
+                      {hack.registrationLink && hack.registrationLink !== '#' && (
+                        <a
+                          href={hack.registrationLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] text-[#f9c74f] underline"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>{hack.registrationLink}</span>
+                        </a>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await approveHackathon(hack.id);
+                          showToast(`Approved "${hack.title}" — now visible in Hackathons/Events!`);
+                        }}
+                        className="pixel-btn text-xs py-1.5 px-3"
+                      >
+                        ✓ Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await dismissHackathon(hack.id);
+                          showToast(`Dismissed "${hack.title}".`);
+                        }}
+                        className="pixel-btn-secondary text-xs py-1.5 px-3"
+                      >
+                        Dismiss
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await deleteHackathon(hack.id);
+                          showToast(`Deleted "${hack.title}".`);
+                        }}
+                        className="pixel-btn-crimson text-xs py-1.5 px-2.5"
+                        title="Delete request"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 2. TEAMS CREATED & MEMBER JOIN REQUESTS MONITOR */}
+          <div className="border-2 border-[#4b2f7e]/80 bg-[#150c28]/70 backdrop-blur-xl p-5 shadow-[4px_4px_0_#060410] space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b-2 border-[#4b2f7e]">
+              <div>
+                <h3 className="text-sm sm:text-base font-bold text-[#f9c74f] uppercase tracking-wider flex items-center gap-2">
+                  <Crown className="w-4 h-4 text-[#f9c74f]" />
+                  <span>Teams Created & Member Requests Monitor</span>
+                </h3>
+                <p className="text-[11px] text-[#a08fd4] mt-0.5">
+                  Track every team captain, team strength (e.g. 0/4, 1/4), and every member who requested to join.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-2.5 py-1 bg-[#241548] border border-[#4b2f7e] text-xs font-bold text-[#52b788]">
+                  {hackathonTeams.length} Total Teams ·{' '}
+                  {hackathonTeams.reduce((sum, t) => sum + (t.joinRequests || []).length, 0)} Member Requests
+                </span>
+                <button
+                  type="button"
+                  disabled={Boolean(isResetting) || hackathonTeams.length === 0}
+                  onClick={async () => {
+                    setIsResetting('hackathon-teams');
+                    const res = await resetHackathonTeams();
+                    setIsResetting(null);
+                    showToast(res.message);
+                  }}
+                  className="pixel-btn-crimson text-[11px] py-1 px-2.5 disabled:opacity-40"
+                  title="Reset all teams and member join requests back to 0"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isResetting === 'hackathon-teams' ? 'animate-spin' : ''}`} />
+                  <span>Reset Teams & Requests (0)</span>
+                </button>
+              </div>
+            </div>
+
+            {hackathonTeams.length === 0 ? (
+              <div className="p-6 bg-[#1a1030]/80 border border-[#4b2f7e] text-center text-xs text-[#a08fd4]">
+                No hackathon teams have been created by students yet.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {hackathonTeams.map((team) => {
+                  const acceptedCount = (team.members || []).length;
+                  const spacesLeft = Math.max(0, team.maxSize - acceptedCount);
+                  const joinReqs = team.joinRequests || [];
+                  const pendingCount = joinReqs.filter((r) => r.status === 'PENDING').length;
+                  const acceptedReqCount = joinReqs.filter((r) => r.status === 'ACCEPTED').length;
+                  const deniedCount = joinReqs.filter((r) => r.status === 'DENIED').length;
+
+                  return (
+                    <div
+                      key={team.id}
+                      className="p-4 bg-[#1a1030]/90 border-2 border-[#4b2f7e] space-y-3 text-xs"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-[#4b2f7e]/70">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-bold text-[#fff4d6]">{team.teamName}</span>
+                            <span className="px-2 py-0.5 text-[10px] font-bold bg-[#2d6a4f]/30 text-[#52b788] border border-[#52b788]">
+                              {acceptedCount}/{team.maxSize} ({spacesLeft} spaces left)
+                            </span>
+                            <span className="px-2 py-0.5 text-[10px] font-bold bg-[#241548] text-[#f9c74f] border border-[#4b2f7e]">
+                              {joinReqs.length} Member Request{joinReqs.length === 1 ? '' : 's'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[#b9a7e8] mt-1">
+                            Captain: <strong className="text-[#f9c74f]">{team.captainName}</strong>
+                            {team.captainRoll && ` (Roll #${team.captainRoll})`} · Event:{' '}
+                            <strong className="text-[#f4e6c8]">{team.hackathonTitle}</strong>
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await deleteHackathonTeam(team.id);
+                            showToast(`Removed team "${team.teamName}".`);
+                          }}
+                          className="px-2.5 py-1 bg-[#d34c53]/20 hover:bg-[#d34c53] text-[#f47b5c] hover:text-white border border-[#d34c53] text-[11px] font-bold cursor-pointer self-start sm:self-auto flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Delete Team</span>
+                        </button>
+                      </div>
+
+                      {/* Member Requests Breakdown */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between flex-wrap gap-2 text-[11px]">
+                          <span className="font-bold text-[#f4e6c8] uppercase">
+                            Member Requests ({joinReqs.length}):
+                          </span>
+                          <div className="flex items-center gap-2 text-[10px] font-bold">
+                            <span className="text-[#f9c74f]">⏳ {pendingCount} Pending</span>
+                            <span className="text-[#52b788]">✓ {acceptedReqCount} Accepted</span>
+                            <span className="text-[#f47b5c]">✕ {deniedCount} Denied</span>
+                          </div>
+                        </div>
+
+                        {joinReqs.length === 0 ? (
+                          <p className="text-[11px] text-[#a08fd4] italic">
+                            No students have requested to join this team yet.
+                          </p>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {joinReqs.map((req) => (
+                              <div
+                                key={req.id}
+                                className="p-2.5 bg-[#241548]/70 border border-[#4b2f7e] flex items-center justify-between gap-2"
+                              >
+                                <div className="min-w-0">
+                                  <div className="font-bold text-white truncate">
+                                    {req.name} <span className="text-[#a08fd4]">(Roll #{req.rollNumber})</span>
+                                  </div>
+                                  <div className="text-[11px] text-[#f9c74f]">Role: {req.role}</div>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {req.status === 'PENDING' && (
+                                    <>
+                                      <span className="px-1.5 py-0.5 text-[9px] font-bold bg-[#f9c74f]/20 text-[#f9c74f] border border-[#f9c74f]">
+                                        PENDING
+                                      </span>
+                                      <button
+                                        type="button"
+                                        disabled={acceptedCount >= team.maxSize}
+                                        onClick={() => respondToJoinRequest(team.id, req.id, 'ACCEPTED')}
+                                        className="px-1.5 py-0.5 bg-[#52b788] text-[#1a1030] font-bold text-[10px] cursor-pointer disabled:opacity-40"
+                                        title="Accept on behalf of captain"
+                                      >
+                                        ✓
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => respondToJoinRequest(team.id, req.id, 'DENIED')}
+                                        className="px-1.5 py-0.5 bg-[#d34c53] text-white font-bold text-[10px] cursor-pointer"
+                                        title="Deny on behalf of captain"
+                                      >
+                                        ✕
+                                      </button>
+                                    </>
+                                  )}
+                                  {req.status === 'ACCEPTED' && (
+                                    <span className="px-2 py-0.5 text-[9px] font-bold bg-[#2d6a4f]/40 text-[#52b788] border border-[#52b788]">
+                                      ACCEPTED
+                                    </span>
+                                  )}
+                                  {req.status === 'DENIED' && (
+                                    <span className="px-2 py-0.5 text-[9px] font-bold bg-[#d34c53]/25 text-[#f47b5c] border border-[#d34c53]">
+                                      DENIED
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 3. MANAGE, ADD & EDIT HACKATHONS */}
+          <div className="border-2 border-[#4b2f7e] bg-[#150c28]/70 p-5 shadow-[4px_4px_0_#060410] space-y-3 text-xs">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <h4 className="text-sm font-bold text-[#f9c74f] uppercase tracking-wider flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-[#f9c74f]" />
+                <span>Manage & Edit Hackathons ({hackathons.length})</span>
+              </h4>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setIsAddHackathonModalOpen(true)}
+                  className="pixel-btn text-[11px] py-1 px-2.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Official Hackathon</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await restoreOfficialHackathons();
+                    showToast('Official December 2026 PDF hackathons synced!');
+                  }}
+                  className="pixel-btn-secondary text-[11px] py-1 px-2.5"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Sync PDF Hackathons</span>
+                </button>
+              </div>
+            </div>
+
+              {/* Filter & Search Existing Hackathon List */}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-3.5 h-3.5 text-[#a08fd4] absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={hackathonListSearch}
+                    onChange={(e) => setHackathonListSearch(e.target.value)}
+                    placeholder="Search hackathon title, college, category..."
+                    className="w-full pl-8 pr-3 py-1.5 bg-[#241548] border border-[#4b2f7e] focus:border-[#f9c74f] text-white text-[11px] focus:outline-none"
+                  />
+                </div>
+                <div className="flex items-center gap-1 flex-wrap">
+                  {(
+                    [
+                      { key: 'ALL', label: `All (${hackathons.length})` },
+                      { key: 'APPROVED', label: `Live (${approvedHackathons.length})` },
+                      { key: 'PENDING_APPROVAL', label: `Pending (${pendingHackathons.length})` },
+                      {
+                        key: 'DISMISSED',
+                        label: `Dismissed (${hackathons.filter((h) => h.status === 'DISMISSED').length})`,
+                      },
+                    ] as const
+                  ).map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setHackathonListFilter(tab.key)}
+                      className={`px-2 py-1 text-[10px] font-bold border cursor-pointer ${
+                        hackathonListFilter === tab.key
+                          ? 'bg-[#f9c74f] text-[#1a1030] border-[#fff4d6]'
+                          : 'bg-[#1a1030] text-[#b9a7e8] border-[#4b2f7e] hover:border-[#f9c74f]'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                {(() => {
+                  const query = hackathonListSearch.trim().toLowerCase();
+                  const filteredHackathons = hackathons.filter((h) => {
+                    const matchesFilter = hackathonListFilter === 'ALL' || h.status === hackathonListFilter;
+                    const matchesQuery =
+                      !query ||
+                      h.title.toLowerCase().includes(query) ||
+                      (h.organizedBy || '').toLowerCase().includes(query) ||
+                      (h.category || '').toLowerCase().includes(query);
+                    return matchesFilter && matchesQuery;
+                  });
+
+                  if (filteredHackathons.length === 0) {
+                    return (
+                      <div className="p-4 bg-[#1a1030] border border-[#4b2f7e] text-center text-[11px] text-[#a08fd4]">
+                        No hackathons match the selected filter or search.
+                      </div>
+                    );
+                  }
+
+                  return filteredHackathons.map((h) => {
+                    const isSelected = editingHackathon?.id === h.id;
+                    return (
+                      <div
+                        key={h.id}
+                        onClick={() => setEditingHackathon({ ...h })}
+                        className={`p-2.5 bg-[#1a1030] border flex items-center justify-between gap-2 cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'border-[#f9c74f] bg-[#241548]'
+                            : 'border-[#4b2f7e] hover:border-[#f9c74f]/70'
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-[#fff4d6] truncate">{h.title}</span>
+                            {h.status === 'APPROVED' && (
+                              <span className="px-1.5 py-0.5 text-[9px] font-bold bg-[#2d6a4f]/40 text-[#52b788] border border-[#52b788]/70">
+                                LIVE
+                              </span>
+                            )}
+                            {h.status === 'PENDING_APPROVAL' && (
+                              <span className="px-1.5 py-0.5 text-[9px] font-bold bg-[#f47b5c]/20 text-[#f47b5c] border border-[#f47b5c]">
+                                PENDING
+                              </span>
+                            )}
+                            {h.status === 'DISMISSED' && (
+                              <span className="px-1.5 py-0.5 text-[9px] font-bold bg-[#241548] text-[#a08fd4] border border-[#4b2f7e]">
+                                DISMISSED
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-[#a08fd4] truncate mt-0.5">
+                            {h.organizedBy} · {h.prizePool} · Deadline: {h.registrationDeadline}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => setEditingHackathon({ ...h })}
+                            className="px-2 py-1 bg-[#241548] hover:bg-[#f9c74f] text-[#f9c74f] hover:text-[#1a1030] border border-[#f9c74f]/70 text-[10px] font-bold cursor-pointer flex items-center gap-1"
+                            title="Select & edit hackathon"
+                          >
+                            <Edit className="w-3 h-3" />
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await deleteHackathon(h.id);
+                              if (editingHackathon?.id === h.id) setEditingHackathon(null);
+                              showToast(`Deleted "${h.title}".`);
+                            }}
+                            className="p-1.5 text-[#f47b5c] hover:text-white hover:bg-[#d34c53] border border-[#d34c53]/60 cursor-pointer"
+                            title="Delete hackathon"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
           </div>
         </div>
       )}
@@ -4057,6 +4685,343 @@ export const AdminPanel: React.FC = () => {
                   className="pixel-btn text-xs font-mono"
                 >
                   ▶ Save Profile Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ----------------------------------------------------------------------
+          MODAL: EDIT HACKATHON EVENT
+      ----------------------------------------------------------------------- */}
+      {editingHackathon && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#060410]/80 backdrop-blur-md font-mono">
+          <div className="border-2 border-[#f4e6c8]/85 bg-[#150c28]/95 backdrop-blur-xl p-6 shadow-[8px_8px_0_#060410] w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b-2 border-[#4b2f7e]">
+              <h3 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider flex items-center gap-2 truncate">
+                <Trophy className="w-4 h-4 text-[#f9c74f] shrink-0" />
+                <span className="truncate">Edit Hackathon: {editingHackathon.title}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingHackathon(null)}
+                className="p-1 text-[#a08fd4] hover:text-[#f47b5c] cursor-pointer shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!editingHackathon.title.trim()) {
+                  showToast('Hackathon Title is mandatory.');
+                  return;
+                }
+                const res = await updateHackathon(editingHackathon.id, {
+                  title: editingHackathon.title,
+                  organizedBy: editingHackathon.organizedBy,
+                  registrationDeadline: editingHackathon.registrationDeadline,
+                  hackathonDates: editingHackathon.hackathonDates,
+                  prizePool: editingHackathon.prizePool,
+                  teamSizeInfo: editingHackathon.teamSizeInfo,
+                  category: editingHackathon.category,
+                  registrationLink: editingHackathon.registrationLink,
+                  status: editingHackathon.status,
+                });
+                if (res.success) {
+                  showToast(res.message);
+                  setEditingHackathon(null);
+                } else {
+                  showToast(res.message);
+                }
+              }}
+              className="space-y-3.5 text-xs font-mono"
+            >
+              <div>
+                <label className="block font-bold text-[#f4e6c8] mb-1 uppercase">Hackathon / Event Title *</label>
+                <input
+                  type="text"
+                  value={editingHackathon.title}
+                  onChange={(e) => setEditingHackathon({ ...editingHackathon, title: e.target.value })}
+                  className="w-full px-3 py-2 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-[#fff4d6] focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-[#f4e6c8] mb-1 uppercase">Organized By (College / Org)</label>
+                <input
+                  type="text"
+                  value={editingHackathon.organizedBy}
+                  onChange={(e) => setEditingHackathon({ ...editingHackathon, organizedBy: e.target.value })}
+                  className="w-full px-3 py-2 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-[#fff4d6] focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-[#f4e6c8] mb-1 uppercase">Registration Deadline</label>
+                  <input
+                    type="text"
+                    value={editingHackathon.registrationDeadline}
+                    onChange={(e) =>
+                      setEditingHackathon({ ...editingHackathon, registrationDeadline: e.target.value })
+                    }
+                    className="w-full px-3 py-2 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-[#fff4d6] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-[#f4e6c8] mb-1 uppercase">Hackathon Dates</label>
+                  <input
+                    type="text"
+                    value={editingHackathon.hackathonDates}
+                    onChange={(e) => setEditingHackathon({ ...editingHackathon, hackathonDates: e.target.value })}
+                    className="w-full px-3 py-2 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-[#fff4d6] focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-[#f4e6c8] mb-1 uppercase">Prize Pool</label>
+                  <input
+                    type="text"
+                    value={editingHackathon.prizePool}
+                    onChange={(e) => setEditingHackathon({ ...editingHackathon, prizePool: e.target.value })}
+                    className="w-full px-3 py-2 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-[#fff4d6] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-[#f4e6c8] mb-1 uppercase">Team Size Info</label>
+                  <input
+                    type="text"
+                    value={editingHackathon.teamSizeInfo || ''}
+                    onChange={(e) => setEditingHackathon({ ...editingHackathon, teamSizeInfo: e.target.value })}
+                    placeholder="e.g. 2-4 members"
+                    className="w-full px-3 py-2 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-[#fff4d6] focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-[#f4e6c8] mb-1 uppercase">Category</label>
+                  <input
+                    type="text"
+                    value={editingHackathon.category || ''}
+                    onChange={(e) => setEditingHackathon({ ...editingHackathon, category: e.target.value })}
+                    placeholder="e.g. AI / Coding / Innovation"
+                    className="w-full px-3 py-2 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-[#fff4d6] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-[#f4e6c8] mb-1 uppercase">Event Status</label>
+                  <select
+                    value={editingHackathon.status}
+                    onChange={(e) =>
+                      setEditingHackathon({
+                        ...editingHackathon,
+                        status: e.target.value as HackathonEvent['status'],
+                      })
+                    }
+                    className="w-full px-3 py-2 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-[#fff4d6] focus:outline-none"
+                  >
+                    <option value="APPROVED">APPROVED (Live)</option>
+                    <option value="PENDING_APPROVAL">PENDING_APPROVAL</option>
+                    <option value="DISMISSED">DISMISSED</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-[#f4e6c8] mb-1 uppercase">Registration Link</label>
+                <input
+                  type="text"
+                  value={editingHackathon.registrationLink}
+                  onChange={(e) => setEditingHackathon({ ...editingHackathon, registrationLink: e.target.value })}
+                  placeholder="https://..."
+                  className="w-full px-3 py-2 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-[#fff4d6] focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-3 flex items-center justify-between gap-2 border-t-2 border-[#4b2f7e] flex-wrap">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const targetTitle = editingHackathon.title;
+                    await deleteHackathon(editingHackathon.id);
+                    setEditingHackathon(null);
+                    showToast(`Deleted "${targetTitle}".`);
+                  }}
+                  className="pixel-btn-crimson text-xs py-1.5 px-3"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Event</span>
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingHackathon(null)}
+                    className="pixel-btn-secondary text-xs"
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="pixel-btn text-xs font-mono">
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save Changes</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ----------------------------------------------------------------------
+          MODAL: ADD OFFICIAL HACKATHON
+      ----------------------------------------------------------------------- */}
+      {isAddHackathonModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#060410]/85 backdrop-blur-md font-mono">
+          <div className="border-2 border-[#f4e6c8]/85 bg-[#150c28]/95 backdrop-blur-xl p-6 shadow-[8px_8px_0_#060410] w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b-2 border-[#4b2f7e]">
+              <h3 className="text-base font-bold text-[#f9c74f] uppercase tracking-wider flex items-center gap-2">
+                <Plus className="w-4 h-4 text-[#f47b5c]" />
+                <span>Add Official Hackathon</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsAddHackathonModalOpen(false)}
+                className="p-1 text-[#a08fd4] hover:text-[#f47b5c] cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!adminHackTitle.trim()) return;
+                const res = await submitHackathonRequest(
+                  {
+                    title: adminHackTitle,
+                    organizedBy: adminHackOrg,
+                    registrationDeadline: adminHackDeadline,
+                    hackathonDates: adminHackDates,
+                    prizePool: adminHackPrize,
+                    teamSizeInfo: adminHackTeamSize,
+                    registrationLink: adminHackLink,
+                  },
+                  true
+                );
+                if (res.success) {
+                  showToast(res.message);
+                  setAdminHackTitle('');
+                  setAdminHackOrg('');
+                  setAdminHackDeadline('');
+                  setAdminHackDates('');
+                  setAdminHackPrize('');
+                  setAdminHackTeamSize('');
+                  setAdminHackLink('');
+                  setIsAddHackathonModalOpen(false);
+                } else {
+                  showToast(res.message);
+                }
+              }}
+              className="space-y-3.5 text-xs font-mono"
+            >
+              <div>
+                <label className="block font-bold text-[#f4e6c8] mb-1 uppercase">Hackathon / Event Title *</label>
+                <input
+                  type="text"
+                  value={adminHackTitle}
+                  onChange={(e) => setAdminHackTitle(e.target.value)}
+                  placeholder="Hackathon / Event Title *"
+                  required
+                  autoFocus
+                  className="w-full px-3 py-2 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-[#f4e6c8] mb-1 uppercase">Organized by (College / Org)</label>
+                <input
+                  type="text"
+                  value={adminHackOrg}
+                  onChange={(e) => setAdminHackOrg(e.target.value)}
+                  placeholder="Organized by (College / Org)"
+                  className="w-full px-3 py-2 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-[#f4e6c8] mb-1 uppercase">Deadline</label>
+                  <input
+                    type="text"
+                    value={adminHackDeadline}
+                    onChange={(e) => setAdminHackDeadline(e.target.value)}
+                    placeholder="e.g. 20 Dec 2026"
+                    className="w-full px-3 py-2 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-[#f4e6c8] mb-1 uppercase">Hackathon Dates</label>
+                  <input
+                    type="text"
+                    value={adminHackDates}
+                    onChange={(e) => setAdminHackDates(e.target.value)}
+                    placeholder="e.g. 26–27 Dec 2026"
+                    className="w-full px-3 py-2 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-[#f4e6c8] mb-1 uppercase">Prize Pool</label>
+                  <input
+                    type="text"
+                    value={adminHackPrize}
+                    onChange={(e) => setAdminHackPrize(e.target.value)}
+                    placeholder="e.g. ₹1,00,000"
+                    className="w-full px-3 py-2 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-[#f4e6c8] mb-1 uppercase">Team Size (e.g. 2-4)</label>
+                  <input
+                    type="text"
+                    value={adminHackTeamSize}
+                    onChange={(e) => setAdminHackTeamSize(e.target.value)}
+                    placeholder="Team Size (e.g. 2-4)"
+                    className="w-full px-3 py-2 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-[#f4e6c8] mb-1 uppercase">Registration Link (https://...)</label>
+                <input
+                  type="url"
+                  value={adminHackLink}
+                  onChange={(e) => setAdminHackLink(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full px-3 py-2 bg-[#241548] border-2 border-[#4b2f7e] focus:border-[#f9c74f] text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t-2 border-[#4b2f7e]">
+                <button
+                  type="button"
+                  onClick={() => setIsAddHackathonModalOpen(false)}
+                  className="pixel-btn-secondary text-xs"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="pixel-btn text-xs font-mono">
+                  ▶ Publish Hackathon Live
                 </button>
               </div>
             </form>

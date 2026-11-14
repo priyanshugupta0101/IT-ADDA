@@ -9,6 +9,9 @@ import {
   NoteFulfillment,
   CampusVibeConfig,
   CampusVibeOption,
+  HackathonEvent,
+  HackathonTeam,
+  HackathonJoinRequest,
 } from '../types';
 import {
   INITIAL_STUDENTS,
@@ -17,6 +20,7 @@ import {
   INITIAL_NOTICES,
   INITIAL_CHAT,
 } from '../data/seedData';
+import { OFFICIAL_PDF_HACKATHONS } from '../data/hackathonSeedData';
 import { getBatchFromRoll } from '../utils/studentUtils';
 import { soundEngine } from '../utils/soundEffects';
 import {
@@ -36,6 +40,8 @@ import {
   subscribeToCampusVibe,
   subscribeToDeveloperFooter,
   subscribeToAdminCredentials,
+  subscribeToHackathons,
+  subscribeToHackathonTeams,
   saveStudentDoc,
   updateStudentDoc,
   deleteStudentDoc,
@@ -52,9 +58,16 @@ import {
   saveCampusVibeConfig,
   saveDeveloperFooterDoc,
   saveAdminCredentialsDoc,
+  saveHackathonDoc,
+  updateHackathonDoc,
+  deleteHackathonDoc,
+  saveHackathonTeamDoc,
+  updateHackathonTeamDoc,
+  deleteHackathonTeamDoc,
   getStudentsFromFirestore,
   resetAllStudentLikesInFirestore,
   resetCampusVibeVotesInFirestore,
+  resetHackathonTeamsInFirestore,
   wipeAllDataInFirestore,
   DEFAULT_CAMPUS_VIBE as FIRESTORE_DEFAULT_VIBE,
 } from '../services/firestoreService';
@@ -179,18 +192,69 @@ interface AppContextType {
   sendChatMessage: (content: string, replyTo?: { id: string; authorName: string; text: string }) => void;
   addChatReaction: (messageId: string, emoji: string) => void;
 
+  // Hackathons / Events & Teams
+  hackathons: HackathonEvent[];
+  hackathonTeams: HackathonTeam[];
+  submitHackathonRequest: (
+    data: {
+      title: string;
+      organizedBy: string;
+      registrationDeadline: string;
+      hackathonDates: string;
+      registrationLink: string;
+      prizePool: string;
+      teamSizeInfo?: string;
+    },
+    autoApprove?: boolean
+  ) => Promise<{ success: boolean; message: string; hackathon?: HackathonEvent }>;
+  approveHackathon: (hackathonId: string) => Promise<void>;
+  dismissHackathon: (hackathonId: string) => Promise<void>;
+  updateHackathon: (
+    hackathonId: string,
+    updates: Partial<HackathonEvent>
+  ) => Promise<{ success: boolean; message: string; hackathon?: HackathonEvent }>;
+  deleteHackathon: (hackathonId: string) => Promise<void>;
+  restoreOfficialHackathons: () => Promise<void>;
+  createHackathonTeam: (data: {
+    hackathonId: string;
+    teamName: string;
+    captainName: string;
+    maxSize: number;
+    captainRoll?: string;
+  }) => Promise<{ success: boolean; message: string; team?: HackathonTeam }>;
+  deleteHackathonTeam: (teamId: string) => Promise<void>;
+  requestToJoinHackathonTeam: (
+    teamId: string,
+    applicant: { name: string; role: string; rollNumber: string }
+  ) => Promise<{ success: boolean; message: string }>;
+  respondToJoinRequest: (
+    teamId: string,
+    requestId: string,
+    decision: 'ACCEPTED' | 'DENIED'
+  ) => Promise<{ success: boolean; message: string }>;
+  dismissTeamNotification: (
+    teamId: string,
+    requestId: string,
+    type: 'ACCEPTED' | 'DENIED'
+  ) => Promise<void>;
+  isMyCaptainTeam: (team: HackathonTeam) => boolean;
+  isMyJoinRequest: (req: HackathonJoinRequest) => boolean;
+
   // Modals & Navigation
   isRegisterModalOpen: boolean;
   setIsRegisterModalOpen: (open: boolean) => void;
+  registerModalTab: 'REGISTER' | 'SIGNIN';
+  setRegisterModalTab: (tab: 'REGISTER' | 'SIGNIN') => void;
   viewingStudent: StudentProfile | null;
   setViewingStudent: (student: StudentProfile | null) => void;
   isPersonalDetailsOpen: boolean;
   setIsPersonalDetailsOpen: (open: boolean) => void;
 
   // Helpers
-  resetData: (mode?: 'default' | 'wipe' | 'likes' | 'vibe') => Promise<{ success: boolean; message: string }>;
+  resetData: (mode?: 'default' | 'wipe' | 'likes' | 'vibe' | 'hackathon-teams') => Promise<{ success: boolean; message: string }>;
   resetAllLikes: () => Promise<void>;
   resetCampusVibePoll: () => Promise<void>;
+  resetHackathonTeams: () => Promise<{ success: boolean; message: string }>;
   exportDatabaseBackup: () => void;
   isRealtimeConnected: boolean;
 }
@@ -337,6 +401,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
     try {
       const saved = localStorage.getItem('nexusit_portal_chat_live');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Hackathons / Events & Teams
+  const [hackathons, setHackathons] = useState<HackathonEvent[]>(() => {
+    try {
+      const saved = localStorage.getItem('nexusit_portal_hackathons_live');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      if (localStorage.getItem('nexusit_db_wiped') === 'true') return [];
+      return OFFICIAL_PDF_HACKATHONS;
+    } catch {
+      return OFFICIAL_PDF_HACKATHONS;
+    }
+  });
+
+  const [hackathonTeams, setHackathonTeams] = useState<HackathonTeam[]>(() => {
+    try {
+      const saved = localStorage.getItem('nexusit_portal_hackathon_teams_live');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [myCaptainTeamIds, setMyCaptainTeamIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('nexusit_my_captain_team_ids');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [myJoinRequestIds, setMyJoinRequestIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('nexusit_my_join_request_ids');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -610,6 +716,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Modals state
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [registerModalTab, setRegisterModalTab] = useState<'REGISTER' | 'SIGNIN'>('REGISTER');
   const [viewingStudent, setViewingStudent] = useState<StudentProfile | null>(null);
   const [isPersonalDetailsOpen, setIsPersonalDetailsOpen] = useState(false);
 
@@ -618,6 +725,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     currentUserRef.current = currentUser;
   }, [currentUser]);
+
+  // Track Firestore-backed hackathonTeams so server polling never wipes cloud teams
+  const firestoreTeamIdsRef = useRef<Set<string>>(new Set());
+  const firestoreTeamsLoadedRef = useRef(false);
+  const pendingDeletedTeamIdsRef = useRef<Set<string>>(new Set());
 
   // Sync to local storage
   useEffect(() => {
@@ -657,6 +769,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('nexusit_portal_chat_live', JSON.stringify(chatMessages));
   }, [chatMessages]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('nexusit_portal_hackathons_live', JSON.stringify(hackathons));
+    } catch {}
+  }, [hackathons]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('nexusit_portal_hackathon_teams_live', JSON.stringify(hackathonTeams));
+    } catch {}
+  }, [hackathonTeams]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('nexusit_my_captain_team_ids', JSON.stringify(myCaptainTeamIds));
+    } catch {}
+  }, [myCaptainTeamIds]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('nexusit_my_join_request_ids', JSON.stringify(myJoinRequestIds));
+    } catch {}
+  }, [myJoinRequestIds]);
 
   useEffect(() => {
     localStorage.setItem('nexusit_unread_badges_live', JSON.stringify(unreadBadges));
@@ -776,6 +912,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
 
+    const unsubHackathons = subscribeToHackathons((liveHackathons) => {
+      if (Array.isArray(liveHackathons) && liveHackathons.length > 0) {
+        setHackathons((prev) => {
+          const map = new Map<string, HackathonEvent>();
+          for (const h of prev) {
+            if (h && h.id) map.set(h.id, h);
+          }
+          for (const h of liveHackathons) {
+            if (h && h.id) map.set(h.id, h);
+          }
+          return Array.from(map.values()).sort(
+            (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+          );
+        });
+      }
+    });
+
+    let hasReceivedFirestoreTeams = false;
+    const unsubHackathonTeams = subscribeToHackathonTeams((liveTeams) => {
+      const validTeams = Array.isArray(liveTeams)
+        ? liveTeams.filter((t) => t && t.id && !pendingDeletedTeamIdsRef.current.has(t.id))
+        : [];
+      firestoreTeamsLoadedRef.current = true;
+      firestoreTeamIdsRef.current = new Set(validTeams.map((t) => t.id));
+
+      if (validTeams.length > 0) {
+        hasReceivedFirestoreTeams = true;
+        setHackathonTeams((prev) => {
+          const map = new Map<string, HackathonTeam>();
+          for (const t of prev) {
+            if (t && t.id && !pendingDeletedTeamIdsRef.current.has(t.id)) map.set(t.id, t);
+          }
+          for (const t of validTeams) {
+            map.set(t.id, t);
+          }
+          return Array.from(map.values()).sort(
+            (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+          );
+        });
+        // Keep Express server cache synchronized with Firestore teams
+        fetch('/api/database/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hackathonTeams: validTeams }),
+        }).catch(() => {});
+      } else if (Array.isArray(liveTeams) && liveTeams.length === 0 && hasReceivedFirestoreTeams) {
+        setHackathonTeams([]);
+      }
+    });
+
     // 2. Initial State Fetch from backend
     const fetchDatabase = async () => {
       try {
@@ -820,6 +1006,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (data && Array.isArray(data.resources)) setResources(data.resources);
         if (data && Array.isArray(data.notices)) setNotices(data.notices);
         if (data && Array.isArray(data.chatMessages)) setChatMessages(data.chatMessages);
+        if (data && Array.isArray(data.hackathons) && data.hackathons.length > 0) setHackathons(data.hackathons);
+        if (data && Array.isArray(data.hackathonTeams)) {
+          if (data.hackathonTeams.length > 0) {
+            setHackathonTeams((prev) => {
+              const map = new Map<string, HackathonTeam>();
+              for (const t of data.hackathonTeams) {
+                if (t && t.id && !pendingDeletedTeamIdsRef.current.has(t.id)) {
+                  map.set(t.id, t);
+                }
+              }
+              for (const t of prev) {
+                if (t && t.id && !map.has(t.id) && firestoreTeamIdsRef.current.has(t.id)) {
+                  map.set(t.id, t);
+                }
+              }
+              return Array.from(map.values()).sort(
+                (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+              );
+            });
+          } else if (firestoreTeamsLoadedRef.current && firestoreTeamIdsRef.current.size === 0) {
+            setHackathonTeams([]);
+          }
+        }
         if (data && data.campusVibeConfig && Array.isArray(data.campusVibeConfig.options)) {
           setCampusVibeConfig(data.campusVibeConfig);
         }
@@ -1043,6 +1252,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setResources(payload.database.resources || []);
             setNotices(payload.database.notices || []);
             setChatMessages(payload.database.chatMessages || []);
+            setHackathons(payload.database.hackathons || []);
+            setHackathonTeams(payload.database.hackathonTeams || []);
             setCampusStreak(payload.database.campusStreak ?? 0);
             if (payload.database.campusVibeConfig) {
               setCampusVibeConfig(payload.database.campusVibeConfig);
@@ -1053,6 +1264,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setResources([]);
             setNotices([]);
             setChatMessages([]);
+            setHackathons([]);
+            setHackathonTeams([]);
             setCampusStreak(0);
           }
           localStorage.setItem('nexusit_campus_streak', '0');
@@ -1156,6 +1369,128 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       });
 
+      eventSource.addEventListener('HACKATHON_CREATED', (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (Array.isArray(payload.hackathons)) {
+            setHackathons(payload.hackathons);
+          } else if (payload.hackathon) {
+            setHackathons((prev) => [payload.hackathon, ...prev.filter((h) => h.id !== payload.hackathon.id)]);
+          }
+        } catch (err) {
+          console.error('Error handling HACKATHON_CREATED SSE:', err);
+        }
+      });
+
+      eventSource.addEventListener('HACKATHON_UPDATED', (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (Array.isArray(payload.hackathons)) {
+            setHackathons(payload.hackathons);
+          } else if (payload.hackathon) {
+            setHackathons((prev) => prev.map((h) => (h.id === payload.hackathon.id ? payload.hackathon : h)));
+          }
+          if (Array.isArray(payload.hackathonTeams)) {
+            setHackathonTeams(payload.hackathonTeams);
+          }
+        } catch (err) {
+          console.error('Error handling HACKATHON_UPDATED SSE:', err);
+        }
+      });
+
+      eventSource.addEventListener('HACKATHON_DELETED', (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (Array.isArray(payload.hackathons)) setHackathons(payload.hackathons);
+          else if (payload.id) setHackathons((prev) => prev.filter((h) => h.id !== payload.id));
+          if (Array.isArray(payload.hackathonTeams)) setHackathonTeams(payload.hackathonTeams);
+        } catch (err) {
+          console.error('Error handling HACKATHON_DELETED SSE:', err);
+        }
+      });
+
+      eventSource.addEventListener('HACKATHONS_SYNCED', (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (Array.isArray(payload.hackathons)) setHackathons(payload.hackathons);
+        } catch (err) {
+          console.error('Error handling HACKATHONS_SYNCED SSE:', err);
+        }
+      });
+
+      eventSource.addEventListener('HACKATHON_TEAM_CREATED', (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (Array.isArray(payload.hackathonTeams)) {
+            setHackathonTeams(payload.hackathonTeams);
+          } else if (payload.team) {
+            setHackathonTeams((prev) => [payload.team, ...prev.filter((t) => t.id !== payload.team.id)]);
+          }
+        } catch (err) {
+          console.error('Error handling HACKATHON_TEAM_CREATED SSE:', err);
+        }
+      });
+
+      eventSource.addEventListener('HACKATHON_TEAM_UPDATED', (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (Array.isArray(payload.hackathonTeams)) {
+            setHackathonTeams(payload.hackathonTeams);
+          } else if (payload.team) {
+            setHackathonTeams((prev) => prev.map((t) => (t.id === payload.team.id ? payload.team : t)));
+          }
+        } catch (err) {
+          console.error('Error handling HACKATHON_TEAM_UPDATED SSE:', err);
+        }
+      });
+
+      eventSource.addEventListener('HACKATHON_TEAM_DELETED', (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload.id) {
+            firestoreTeamIdsRef.current.delete(payload.id);
+            pendingDeletedTeamIdsRef.current.add(payload.id);
+            setTimeout(() => pendingDeletedTeamIdsRef.current.delete(payload.id), 6000);
+          }
+          if (Array.isArray(payload.hackathonTeams)) {
+            setHackathonTeams((prev) => {
+              const map = new Map<string, HackathonTeam>();
+              for (const t of payload.hackathonTeams) {
+                if (t && t.id && t.id !== payload.id) map.set(t.id, t);
+              }
+              for (const t of prev) {
+                if (t && t.id && t.id !== payload.id && !map.has(t.id) && firestoreTeamIdsRef.current.has(t.id)) {
+                  map.set(t.id, t);
+                }
+              }
+              return Array.from(map.values()).sort(
+                (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+              );
+            });
+          } else if (payload.id) {
+            setHackathonTeams((prev) => prev.filter((t) => t.id !== payload.id));
+          }
+        } catch (err) {
+          console.error('Error handling HACKATHON_TEAM_DELETED SSE:', err);
+        }
+      });
+
+      eventSource.addEventListener('HACKATHON_TEAMS_RESET', () => {
+        try {
+          firestoreTeamIdsRef.current.clear();
+          setHackathonTeams([]);
+          setMyCaptainTeamIds([]);
+          setMyJoinRequestIds([]);
+          localStorage.removeItem('nexusit_portal_hackathon_teams_live');
+          localStorage.removeItem('nexusit_my_captain_team_ids');
+          localStorage.removeItem('nexusit_my_join_request_ids');
+          localStorage.removeItem('nexusit_my_applicant_profile');
+          localStorage.removeItem('nexusit_last_captain_name');
+        } catch (err) {
+          console.error('Error handling HACKATHON_TEAMS_RESET SSE:', err);
+        }
+      });
+
       eventSource.onerror = () => {
         setIsRealtimeConnected(false);
       };
@@ -1196,6 +1531,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (Array.isArray(data.resources)) setResources(data.resources);
           if (Array.isArray(data.notices)) setNotices(data.notices);
           if (Array.isArray(data.chatMessages)) setChatMessages(data.chatMessages);
+          if (Array.isArray(data.hackathons) && data.hackathons.length > 0) setHackathons(data.hackathons);
+          if (Array.isArray(data.hackathonTeams)) {
+            if (data.hackathonTeams.length > 0) {
+              setHackathonTeams((prev) => {
+                const map = new Map<string, HackathonTeam>();
+                for (const t of data.hackathonTeams) {
+                  if (t && t.id && !pendingDeletedTeamIdsRef.current.has(t.id)) {
+                    map.set(t.id, t);
+                  }
+                }
+                for (const t of prev) {
+                  if (t && t.id && !map.has(t.id) && firestoreTeamIdsRef.current.has(t.id)) {
+                    map.set(t.id, t);
+                  }
+                }
+                return Array.from(map.values()).sort(
+                  (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+                );
+              });
+            } else if (firestoreTeamsLoadedRef.current && firestoreTeamIdsRef.current.size === 0) {
+              setHackathonTeams([]);
+            }
+          }
           if (data.campusVibeConfig && Array.isArray(data.campusVibeConfig.options)) {
             setCampusVibeConfig(data.campusVibeConfig);
             const allZero = data.campusVibeConfig.options.length > 0 &&
@@ -1219,6 +1577,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubChat();
       unsubVibe();
       unsubFooter();
+      unsubHackathons();
+      unsubHackathonTeams();
       if (eventSource) eventSource.close();
       clearInterval(pollInterval);
     };
@@ -2426,6 +2786,531 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).catch((err) => console.error('Error sending chat reaction:', err));
   };
 
+  // ==========================================================================
+  // Hackathons / Events & Team Management
+  // ==========================================================================
+  const submitHackathonRequest = async (
+    data: {
+      title: string;
+      organizedBy: string;
+      registrationDeadline: string;
+      hackathonDates: string;
+      registrationLink: string;
+      prizePool: string;
+      teamSizeInfo?: string;
+    },
+    autoApprove = false
+  ): Promise<{ success: boolean; message: string; hackathon?: HackathonEvent }> => {
+    const cleanTitle = (data.title || '').trim();
+    if (!cleanTitle) {
+      soundEngine.playDislike();
+      return { success: false, message: 'Hackathon / Event Title is mandatory.' };
+    }
+
+    const newHackathon: HackathonEvent = {
+      id: `hack_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      title: cleanTitle,
+      organizedBy: data.organizedBy.trim() || 'TBA',
+      registrationDeadline: data.registrationDeadline.trim() || 'TBA',
+      hackathonDates: data.hackathonDates.trim() || 'TBA',
+      registrationLink: data.registrationLink.trim() || '#',
+      prizePool: data.prizePool.trim() || 'TBA',
+      teamSizeInfo: data.teamSizeInfo?.trim() || 'Open Team',
+      status: autoApprove ? 'APPROVED' : 'PENDING_APPROVAL',
+      submittedBy: {
+        id: currentUser?.id || 'guest_student',
+        name: currentUser?.name || 'IT Student',
+        rollNumber: currentUser?.rollNumber,
+      },
+      createdAt: new Date().toISOString(),
+    };
+
+    setHackathons((prev) => [newHackathon, ...prev]);
+
+    saveHackathonDoc(newHackathon).catch((err) =>
+      console.error('Error saving hackathon to Firestore:', err)
+    );
+
+    try {
+      await fetch('/api/hackathons', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newHackathon),
+      });
+    } catch (err) {
+      console.error('Error posting hackathon to server:', err);
+    }
+
+    soundEngine.playSuccess();
+    return {
+      success: true,
+      message: autoApprove
+        ? `"${cleanTitle}" published live to Hackathons/Events!`
+        : `Request for "${cleanTitle}" sent to Admin Dashboard for approval!`,
+      hackathon: newHackathon,
+    };
+  };
+
+  const approveHackathon = async (hackathonId: string) => {
+    setHackathons((prev) =>
+      prev.map((h) => (h.id === hackathonId ? { ...h, status: 'APPROVED' } : h))
+    );
+    updateHackathonDoc(hackathonId, { status: 'APPROVED' }).catch((err) =>
+      console.error('Error approving hackathon in Firestore:', err)
+    );
+    fetch(`/api/hackathons/${hackathonId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'APPROVED' }),
+    }).catch((err) => console.error('Error approving hackathon:', err));
+    soundEngine.playSuccess();
+  };
+
+  const dismissHackathon = async (hackathonId: string) => {
+    setHackathons((prev) =>
+      prev.map((h) => (h.id === hackathonId ? { ...h, status: 'DISMISSED' } : h))
+    );
+    updateHackathonDoc(hackathonId, { status: 'DISMISSED' }).catch((err) =>
+      console.error('Error dismissing hackathon in Firestore:', err)
+    );
+    fetch(`/api/hackathons/${hackathonId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'DISMISSED' }),
+    }).catch((err) => console.error('Error dismissing hackathon:', err));
+    soundEngine.playVibeVoteSound();
+  };
+
+  const updateHackathon = async (
+    hackathonId: string,
+    updates: Partial<HackathonEvent>
+  ): Promise<{ success: boolean; message: string; hackathon?: HackathonEvent }> => {
+    const cleanTitle = updates.title !== undefined ? updates.title.trim() : undefined;
+    if (cleanTitle !== undefined && !cleanTitle) {
+      soundEngine.playDislike();
+      return { success: false, message: 'Hackathon / Event Title is mandatory.' };
+    }
+
+    const existing = hackathons.find((h) => h.id === hackathonId);
+    if (!existing) {
+      return { success: false, message: 'Hackathon event not found.' };
+    }
+
+    const normalizedUpdates: Partial<HackathonEvent> = {
+      ...updates,
+      ...(cleanTitle !== undefined ? { title: cleanTitle } : {}),
+      ...(updates.organizedBy !== undefined ? { organizedBy: updates.organizedBy.trim() || 'TBA' } : {}),
+      ...(updates.registrationDeadline !== undefined
+        ? { registrationDeadline: updates.registrationDeadline.trim() || 'TBA' }
+        : {}),
+      ...(updates.hackathonDates !== undefined ? { hackathonDates: updates.hackathonDates.trim() || 'TBA' } : {}),
+      ...(updates.prizePool !== undefined ? { prizePool: updates.prizePool.trim() || 'TBA' } : {}),
+      ...(updates.teamSizeInfo !== undefined ? { teamSizeInfo: updates.teamSizeInfo.trim() || 'Open Team' } : {}),
+      ...(updates.category !== undefined ? { category: updates.category.trim() } : {}),
+      ...(updates.registrationLink !== undefined
+        ? { registrationLink: updates.registrationLink.trim() || '#' }
+        : {}),
+    };
+
+    const updatedHackathon: HackathonEvent = { ...existing, ...normalizedUpdates };
+
+    setHackathons((prev) => prev.map((h) => (h.id === hackathonId ? updatedHackathon : h)));
+    if (cleanTitle) {
+      setHackathonTeams((prev) =>
+        prev.map((t) => (t.hackathonId === hackathonId ? { ...t, hackathonTitle: cleanTitle } : t))
+      );
+    }
+
+    updateHackathonDoc(hackathonId, normalizedUpdates).catch((err) =>
+      console.error('Error updating hackathon in Firestore:', err)
+    );
+
+    try {
+      await fetch(`/api/hackathons/${hackathonId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(normalizedUpdates),
+      });
+    } catch (err) {
+      console.error('Error updating hackathon on server:', err);
+    }
+
+    soundEngine.playSuccess();
+    return {
+      success: true,
+      message: `Updated "${updatedHackathon.title}" successfully!`,
+      hackathon: updatedHackathon,
+    };
+  };
+
+  const deleteHackathon = async (hackathonId: string) => {
+    setHackathons((prev) => prev.filter((h) => h.id !== hackathonId));
+    setHackathonTeams((prev) => prev.filter((t) => t.hackathonId !== hackathonId));
+    deleteHackathonDoc(hackathonId).catch((err) =>
+      console.error('Error deleting hackathon in Firestore:', err)
+    );
+    fetch(`/api/hackathons/${hackathonId}`, {
+      method: 'DELETE',
+    }).catch((err) => console.error('Error deleting hackathon:', err));
+    soundEngine.playDelete();
+  };
+
+  const restoreOfficialHackathons = async () => {
+    setHackathons((prev) => {
+      const next = [...prev];
+      for (const official of OFFICIAL_PDF_HACKATHONS) {
+        if (!next.some((h) => h.id === official.id)) {
+          next.push({ ...official });
+        }
+      }
+      return next;
+    });
+    for (const official of OFFICIAL_PDF_HACKATHONS) {
+      saveHackathonDoc(official).catch(() => {});
+    }
+    fetch('/api/hackathons/restore-official', { method: 'POST' }).catch(() => {});
+    soundEngine.playSuccess();
+  };
+
+  const createHackathonTeam = async (data: {
+    hackathonId: string;
+    teamName: string;
+    captainName: string;
+    maxSize: number;
+    captainRoll?: string;
+  }): Promise<{ success: boolean; message: string; team?: HackathonTeam }> => {
+    if (!currentUser || currentUser.status !== 'APPROVED') {
+      soundEngine.playDislike();
+      return {
+        success: false,
+        message: 'First, register yourself on IT Adda, then create a team or join a team.',
+      };
+    }
+
+    const cleanTeamName = data.teamName.trim();
+    const cleanCaptainName = data.captainName.trim();
+    if (!cleanTeamName || !cleanCaptainName) {
+      soundEngine.playDislike();
+      return { success: false, message: 'Team Name and Team Leader / Captain Name are required.' };
+    }
+
+    const hackathon = hackathons.find((h) => h.id === data.hackathonId);
+    const maxSize = Math.max(1, Math.min(10, Number(data.maxSize) || 4));
+    const teamId = `team_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+    const newTeam: HackathonTeam = {
+      id: teamId,
+      hackathonId: data.hackathonId,
+      hackathonTitle: hackathon?.title || 'Hackathon Event',
+      teamName: cleanTeamName,
+      captainName: cleanCaptainName,
+      captainId: currentUser?.id || `cap_${teamId}`,
+      captainRoll: data.captainRoll?.trim() || (currentUser?.rollNumber ? String(currentUser.rollNumber) : undefined),
+      maxSize,
+      members: [],
+      joinRequests: [],
+      createdAt: new Date().toISOString(),
+    };
+
+    firestoreTeamIdsRef.current.add(teamId);
+    setHackathonTeams((prev) => [newTeam, ...prev]);
+    setMyCaptainTeamIds((prev) => (prev.includes(teamId) ? prev : [teamId, ...prev]));
+    try {
+      localStorage.setItem('nexusit_last_captain_name', cleanCaptainName.toLowerCase());
+    } catch {}
+
+    saveHackathonTeamDoc(newTeam).catch((err) =>
+      console.error('Error saving team to Firestore:', err)
+    );
+
+    try {
+      await fetch('/api/hackathon-teams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newTeam),
+      });
+    } catch (err) {
+      console.error('Error creating hackathon team:', err);
+    }
+
+    soundEngine.playSuccess();
+    return {
+      success: true,
+      message: `Team "${cleanTeamName}" created (0/${maxSize} members · ${maxSize} spaces left)!`,
+      team: newTeam,
+    };
+  };
+
+  const deleteHackathonTeam = async (teamId: string) => {
+    firestoreTeamIdsRef.current.delete(teamId);
+    pendingDeletedTeamIdsRef.current.add(teamId);
+    setTimeout(() => pendingDeletedTeamIdsRef.current.delete(teamId), 6000);
+    setHackathonTeams((prev) => prev.filter((t) => t.id !== teamId));
+    deleteHackathonTeamDoc(teamId).catch(() => {});
+    fetch(`/api/hackathon-teams/${teamId}`, { method: 'DELETE' }).catch(() => {});
+    soundEngine.playDelete();
+  };
+
+  const requestToJoinHackathonTeam = async (
+    teamId: string,
+    applicant: { name: string; role: string; rollNumber: string }
+  ): Promise<{ success: boolean; message: string }> => {
+    if (!currentUser || currentUser.status !== 'APPROVED') {
+      soundEngine.playDislike();
+      return {
+        success: false,
+        message: 'First, register yourself on IT Adda, then create a team or join a team.',
+      };
+    }
+
+    const cleanName = applicant.name.trim();
+    const cleanRole = applicant.role.trim();
+    const cleanRoll = applicant.rollNumber.trim();
+    if (!cleanName || !cleanRole || !cleanRoll) {
+      soundEngine.playDislike();
+      return { success: false, message: 'Please enter your Name, Role, and Roll Number.' };
+    }
+
+    const targetTeam = hackathonTeams.find((t) => t.id === teamId);
+    if (!targetTeam) {
+      return { success: false, message: 'Team not found.' };
+    }
+
+    if ((targetTeam.members || []).length >= targetTeam.maxSize) {
+      return { success: false, message: 'This team is already full!' };
+    }
+
+    const duplicatePending = (targetTeam.joinRequests || []).find(
+      (r) =>
+        r.status === 'PENDING' &&
+        (r.rollNumber.trim().toLowerCase() === cleanRoll.toLowerCase() ||
+          (currentUser?.id && r.applicantId === currentUser.id))
+    );
+    if (duplicatePending) {
+      return {
+        success: false,
+        message: 'You already have a pending request for this team. Waiting for captain response.',
+      };
+    }
+
+    const reqId = `jreq_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const newReq: HackathonJoinRequest = {
+      id: reqId,
+      applicantId: currentUser?.id || `app_${reqId}`,
+      name: cleanName,
+      role: cleanRole,
+      rollNumber: cleanRoll,
+      status: 'PENDING',
+      requestedAt: new Date().toISOString(),
+      denialDismissed: false,
+      acceptanceDismissed: false,
+    };
+
+    let updatedTeam: HackathonTeam | null = null;
+    setHackathonTeams((prev) =>
+      prev.map((t) => {
+        if (t.id !== teamId) return t;
+        updatedTeam = {
+          ...t,
+          joinRequests: [newReq, ...(t.joinRequests || [])],
+        };
+        return updatedTeam;
+      })
+    );
+
+    setMyJoinRequestIds((prev) => (prev.includes(reqId) ? prev : [reqId, ...prev]));
+    try {
+      localStorage.setItem(
+        'nexusit_my_applicant_profile',
+        JSON.stringify({ name: cleanName.toLowerCase(), rollNumber: cleanRoll.toLowerCase() })
+      );
+    } catch {}
+
+    if (updatedTeam) {
+      updateHackathonTeamDoc(teamId, { joinRequests: (updatedTeam as HackathonTeam).joinRequests }).catch(() => {});
+    }
+
+    try {
+      await fetch(`/api/hackathon-teams/${teamId}/request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newReq),
+      });
+    } catch (err) {
+      console.error('Error sending join request:', err);
+    }
+
+    soundEngine.playSuccess();
+    return {
+      success: true,
+      message: `Join request sent to captain ${targetTeam.captainName} for "${targetTeam.teamName}"!`,
+    };
+  };
+
+  const respondToJoinRequest = async (
+    teamId: string,
+    requestId: string,
+    decision: 'ACCEPTED' | 'DENIED'
+  ): Promise<{ success: boolean; message: string }> => {
+    const targetTeam = hackathonTeams.find((t) => t.id === teamId);
+    if (!targetTeam) return { success: false, message: 'Team not found.' };
+
+    const targetReq = (targetTeam.joinRequests || []).find((r) => r.id === requestId);
+    if (!targetReq) return { success: false, message: 'Request not found.' };
+
+    if (decision === 'ACCEPTED' && (targetTeam.members || []).length >= targetTeam.maxSize) {
+      return { success: false, message: 'Team has already reached its maximum member size.' };
+    }
+
+    let nextMembers = [...(targetTeam.members || [])];
+    if (decision === 'ACCEPTED') {
+      const alreadyIn = nextMembers.some(
+        (m) =>
+          m.id === targetReq.id ||
+          m.rollNumber.trim().toLowerCase() === targetReq.rollNumber.trim().toLowerCase()
+      );
+      if (!alreadyIn) {
+        nextMembers.push({
+          id: targetReq.id,
+          name: targetReq.name,
+          role: targetReq.role,
+          rollNumber: targetReq.rollNumber,
+          joinedAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    const nextRequests: HackathonJoinRequest[] = (targetTeam.joinRequests || []).map((r) => {
+      if (r.id !== requestId) return r;
+      if (decision === 'ACCEPTED') {
+        return {
+          ...r,
+          status: 'ACCEPTED',
+          respondedAt: new Date().toISOString(),
+          acceptanceDismissed: false,
+        };
+      }
+      return {
+        ...r,
+        status: 'DENIED',
+        respondedAt: new Date().toISOString(),
+        denialDismissed: false,
+      };
+    });
+
+    setHackathonTeams((prev) =>
+      prev.map((t) =>
+        t.id === teamId ? { ...t, members: nextMembers, joinRequests: nextRequests } : t
+      )
+    );
+
+    updateHackathonTeamDoc(teamId, { members: nextMembers, joinRequests: nextRequests }).catch(() => {});
+
+    try {
+      await fetch(`/api/hackathon-teams/${teamId}/respond`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId, decision }),
+      });
+    } catch (err) {
+      console.error('Error responding to join request:', err);
+    }
+
+    if (decision === 'ACCEPTED') {
+      soundEngine.playSuccess();
+      return {
+        success: true,
+        message: `Accepted ${targetReq.name} into "${targetTeam.teamName}" (${nextMembers.length}/${targetTeam.maxSize}).`,
+      };
+    } else {
+      soundEngine.playDislike();
+      return {
+        success: true,
+        message: `Denied ${targetReq.name}'s request to join "${targetTeam.teamName}".`,
+      };
+    }
+  };
+
+  const dismissTeamNotification = async (
+    teamId: string,
+    requestId: string,
+    type: 'ACCEPTED' | 'DENIED'
+  ) => {
+    let nextRequests: HackathonJoinRequest[] = [];
+    setHackathonTeams((prev) =>
+      prev.map((t) => {
+        if (t.id !== teamId) return t;
+        nextRequests = (t.joinRequests || []).map((r) => {
+          if (r.id !== requestId) return r;
+          return type === 'ACCEPTED'
+            ? { ...r, acceptanceDismissed: true }
+            : { ...r, denialDismissed: true };
+        });
+        return { ...t, joinRequests: nextRequests };
+      })
+    );
+
+    if (nextRequests.length > 0) {
+      updateHackathonTeamDoc(teamId, { joinRequests: nextRequests }).catch(() => {});
+    }
+    fetch(`/api/hackathon-teams/${teamId}/dismiss-notification`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId, type }),
+    }).catch(() => {});
+  };
+
+  const isMyCaptainTeam = (team: HackathonTeam): boolean => {
+    if (myCaptainTeamIds.includes(team.id)) return true;
+    if (currentUser) {
+      if (team.captainId && team.captainId === currentUser.id) return true;
+      if (
+        team.captainName &&
+        currentUser.name &&
+        team.captainName.trim().toLowerCase() === currentUser.name.trim().toLowerCase()
+      ) {
+        return true;
+      }
+      if (team.captainRoll && String(team.captainRoll) === String(currentUser.rollNumber)) {
+        return true;
+      }
+    }
+    try {
+      const lastCap = localStorage.getItem('nexusit_last_captain_name');
+      if (lastCap && team.captainName.trim().toLowerCase() === lastCap) return true;
+    } catch {}
+    return false;
+  };
+
+  const isMyJoinRequest = (req: HackathonJoinRequest): boolean => {
+    if (myJoinRequestIds.includes(req.id)) return true;
+    if (currentUser) {
+      if (req.applicantId && req.applicantId === currentUser.id) return true;
+      if (
+        req.rollNumber &&
+        String(req.rollNumber).trim().toLowerCase() === String(currentUser.rollNumber).trim().toLowerCase() &&
+        req.name.trim().toLowerCase() === currentUser.name.trim().toLowerCase()
+      ) {
+        return true;
+      }
+    }
+    try {
+      const savedProf = localStorage.getItem('nexusit_my_applicant_profile');
+      if (savedProf) {
+        const parsed = JSON.parse(savedProf);
+        if (
+          parsed.rollNumber &&
+          parsed.name &&
+          req.rollNumber.trim().toLowerCase() === parsed.rollNumber &&
+          req.name.trim().toLowerCase() === parsed.name
+        ) {
+          return true;
+        }
+      }
+    } catch {}
+    return false;
+  };
+
   const resetAllLikes = async () => {
     await resetData('likes');
   };
@@ -2434,7 +3319,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await resetData('vibe');
   };
 
-  const resetData = async (mode: 'default' | 'wipe' | 'likes' | 'vibe' = 'default') => {
+  const resetHackathonTeams = async () => {
+    return await resetData('hackathon-teams');
+  };
+
+  const resetData = async (mode: 'default' | 'wipe' | 'likes' | 'vibe' | 'hackathon-teams' = 'default') => {
+    const adminToken = localStorage.getItem('nexusit_admin_token') || '';
+    const adminHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(adminToken ? { Authorization: `Bearer ${adminToken}`, 'x-admin-token': adminToken } : {}),
+    };
+
     try {
       if (mode === 'likes') {
         const cleaned = (students || []).map((s) => ({
@@ -2467,8 +3362,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
           const res = await fetch('/api/admin/reset', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mode: 'likes' }),
+            headers: adminHeaders,
+            body: JSON.stringify({ mode: 'likes', adminToken }),
           });
           const data = await res.json();
           if (data.database?.students) {
@@ -2503,8 +3398,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
           const res = await fetch('/api/admin/reset', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mode: 'vibe' }),
+            headers: adminHeaders,
+            body: JSON.stringify({ mode: 'vibe', adminToken }),
           });
           const data = await res.json();
           if (data.vibeConfig) {
@@ -2516,6 +3411,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         soundEngine.playSuccess();
         return { success: true, message: 'Campus vibe votes reset to 0.' };
+      }
+
+      if (mode === 'hackathon-teams') {
+        firestoreTeamIdsRef.current.clear();
+        setHackathonTeams([]);
+        setMyCaptainTeamIds([]);
+        setMyJoinRequestIds([]);
+        const TEAM_KEYS = [
+          'nexusit_portal_hackathon_teams_live',
+          'nexusit_my_captain_team_ids',
+          'nexusit_my_join_request_ids',
+          'nexusit_my_applicant_profile',
+          'nexusit_last_captain_name',
+        ];
+        TEAM_KEYS.forEach((k) => {
+          try {
+            localStorage.removeItem(k);
+          } catch {}
+        });
+
+        await resetHackathonTeamsInFirestore().catch((err) =>
+          console.error('Error resetting hackathon teams in Firestore:', err)
+        );
+
+        try {
+          const res = await fetch('/api/admin/reset', {
+            method: 'POST',
+            headers: adminHeaders,
+            body: JSON.stringify({ mode: 'hackathon-teams', adminToken }),
+          });
+          const data = await res.json();
+          if (Array.isArray(data.hackathonTeams)) {
+            setHackathonTeams(data.hackathonTeams);
+          }
+        } catch (err) {
+          console.error('Error resetting hackathon teams:', err);
+        }
+
+        soundEngine.playSuccess();
+        return { success: true, message: 'All hackathon teams and join requests reset to 0.' };
       }
 
       // Complete reset: clear all local storage keys
@@ -2532,6 +3467,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'nexusit_portal_resources_live',
         'nexusit_portal_notices_live',
         'nexusit_portal_chat_live',
+        'nexusit_portal_hackathons_live',
+        'nexusit_portal_hackathon_teams_live',
+        'nexusit_my_captain_team_ids',
+        'nexusit_my_join_request_ids',
+        'nexusit_my_applicant_profile',
+        'nexusit_last_captain_name',
         'nexusit_unread_badges_live',
         'nexusit_today_vibe',
         'nexusit_campus_vibe_config',
@@ -2551,6 +3492,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setResources([]);
         setNotices([]);
         setChatMessages([]);
+        setHackathons(mode === 'default' ? OFFICIAL_PDF_HACKATHONS : []);
+        setHackathonTeams([]);
+        setMyCaptainTeamIds([]);
+        setMyJoinRequestIds([]);
         setCampusStreak(0);
         setCampusVibeConfig({
           ...DEFAULT_CAMPUS_VIBE,
@@ -2565,8 +3510,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const res = await fetch('/api/admin/reset', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode }),
+        headers: adminHeaders,
+        body: JSON.stringify({ mode, adminToken }),
       });
       const data = await res.json();
 
@@ -2576,6 +3521,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setResources(data.database.resources || []);
         setNotices(data.database.notices || []);
         setChatMessages(data.database.chatMessages || []);
+        setHackathons(data.database.hackathons || []);
+        setHackathonTeams(data.database.hackathonTeams || []);
         if (data.database.campusVibeConfig) {
           setCampusVibeConfig(data.database.campusVibeConfig);
         }
@@ -2601,6 +3548,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       resources,
       notices,
       chatMessages,
+      hackathons,
+      hackathonTeams,
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -2659,8 +3608,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteNotice,
         sendChatMessage,
         addChatReaction,
+        hackathons,
+        hackathonTeams,
+        submitHackathonRequest,
+        approveHackathon,
+        dismissHackathon,
+        updateHackathon,
+        deleteHackathon,
+        restoreOfficialHackathons,
+        createHackathonTeam,
+        deleteHackathonTeam,
+        requestToJoinHackathonTeam,
+        respondToJoinRequest,
+        dismissTeamNotification,
+        isMyCaptainTeam,
+        isMyJoinRequest,
         isRegisterModalOpen,
         setIsRegisterModalOpen,
+        registerModalTab,
+        setRegisterModalTab,
         viewingStudent,
         setViewingStudent,
         isPersonalDetailsOpen,
@@ -2668,6 +3634,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resetData,
         resetAllLikes,
         resetCampusVibePoll,
+        resetHackathonTeams,
         exportDatabaseBackup,
         isRealtimeConnected,
         theme,
